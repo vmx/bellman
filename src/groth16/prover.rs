@@ -7,6 +7,8 @@ use futures::Future;
 use groupy::{CurveAffine, CurveProjective};
 use log::info;
 use paired::Engine;
+#[cfg(feature = "gpu")]
+use fs2::FileExt;
 
 use super::{ParameterSource, Proof};
 use crate::domain::{gpu_fft_supported, EvaluationDomain, Scalar};
@@ -15,6 +17,22 @@ use crate::gpu;
 use crate::multicore::Worker;
 use crate::multiexp::{gpu_multiexp_supported, multiexp, DensityTracker, FullDensity};
 use crate::{Circuit, ConstraintSystem, Index, LinearCombination, SynthesisError, Variable};
+
+// We check to see if another higher priority process needs to use
+// the GPU for each multiexp
+#[cfg(not(feature = "gpu"))]
+macro_rules! check_for_higher_prio {
+    () => {
+        true
+    };
+}
+
+#[cfg(feature = "gpu")]
+macro_rules! check_for_higher_prio {
+    () => {
+        gpu::gpu_is_not_acquired().unwrap_or(false);
+    };
+}
 
 fn eval<E: Engine>(
     lc: &LinearCombination<E>,
@@ -184,7 +202,7 @@ where
     C: Circuit<E>,
 {
     #[cfg(feature = "gpu")]
-    let lock = gpu::lock()?;
+    let lock = gpu::get_lock_file()?;
 
     let mut prover = ProvingAssignment {
         a_aux_density: DensityTracker::new(),
@@ -254,13 +272,29 @@ where
         info!("GPU Multiexp is NOT supported!");
     }
 
-    let h = multiexp(
-        &worker,
-        params.get_h(a.len())?,
-        FullDensity,
-        a,
-        &mut multiexp_kern,
-    );
+    let mut keep_cpu = false;
+
+    let h = if !check_for_higher_prio!() || keep_cpu {
+        #[cfg(feature = "gpu")]
+        {
+            info!("Multiexp 1 Prover found acquire lock, switching to CPU");
+            // Free the incoming process to use the GPU
+            if !keep_cpu {
+                keep_cpu = true;
+                lock.unlock()?;
+            }
+        }
+        multiexp(&worker, params.get_h(a.len())?, FullDensity, a, &mut None)
+    } else {
+        info!("Multiexp 1 Prover NO acquire lock, keeping GPU");
+        multiexp(
+            &worker,
+            params.get_h(a.len())?,
+            FullDensity,
+            a,
+            &mut multiexp_kern,
+        )
+    };
 
     // TODO: parallelize if it's even helpful
     let input_assignment = Arc::new(
@@ -278,33 +312,94 @@ where
             .collect::<Vec<_>>(),
     );
 
-    let l = multiexp(
-        &worker,
-        params.get_l(aux_assignment.len())?,
-        FullDensity,
-        aux_assignment.clone(),
-        &mut multiexp_kern,
-    );
+    let l = if !check_for_higher_prio!() || keep_cpu {
+        #[cfg(feature = "gpu")]
+        {
+            info!("Multiexp 2 Prover found acquire lock, switching to CPU");
+            // Free the incoming process to use the GPU
+            if !keep_cpu {
+                keep_cpu = true;
+                lock.unlock()?;
+            }
+        }
+        multiexp(
+            &worker,
+            params.get_l(aux_assignment.len())?,
+            FullDensity,
+            aux_assignment.clone(),
+            &mut None,
+        )
+    } else {
+        info!("Multiexp 2 Prover NO acquire lock, keeping GPU");
+        multiexp(
+            &worker,
+            params.get_l(aux_assignment.len())?,
+            FullDensity,
+            aux_assignment.clone(),
+            &mut multiexp_kern,
+        )
+    };
 
     let a_aux_density_total = prover.a_aux_density.get_total_density();
 
     let (a_inputs_source, a_aux_source) =
         params.get_a(input_assignment.len(), a_aux_density_total)?;
 
-    let a_inputs = multiexp(
-        &worker,
-        a_inputs_source,
-        FullDensity,
-        input_assignment.clone(),
-        &mut multiexp_kern,
-    );
-    let a_aux = multiexp(
-        &worker,
-        a_aux_source,
-        Arc::new(prover.a_aux_density),
-        aux_assignment.clone(),
-        &mut multiexp_kern,
-    );
+    let a_inputs = if !check_for_higher_prio!() || keep_cpu {
+        #[cfg(feature = "gpu")]
+        {
+            info!("Multiexp 3 Prover found acquire lock, switching to CPU");
+            // Free the incoming process to use the GPU
+            if !keep_cpu {
+                keep_cpu = true;
+                lock.unlock()?;
+            }
+        }
+        multiexp(
+            &worker,
+            a_inputs_source,
+            FullDensity,
+            input_assignment.clone(),
+            &mut None,
+        )
+    } else {
+        info!("Multiexp 3 Prover NO acquire lock, keeping GPU");
+        multiexp(
+            &worker,
+            a_inputs_source,
+            FullDensity,
+            input_assignment.clone(),
+            &mut multiexp_kern,
+        )
+    };
+
+    let a_aux = if !check_for_higher_prio!() || keep_cpu {
+        #[cfg(feature = "gpu")]
+        {
+            info!("Multiexp 4 Prover found acquire lock, switching to CPU");
+            // Free the incoming process to use the GPU
+            if !keep_cpu {
+                keep_cpu = true;
+                lock.unlock()?;
+            }
+        }
+        multiexp(
+            &worker,
+            a_aux_source,
+            Arc::new(prover.a_aux_density),
+            aux_assignment.clone(),
+            &mut None,
+        )
+    } else {
+        info!("Multiexp 4 Prover NO acquire lock, keeping GPU");
+        multiexp(
+            &worker,
+            a_aux_source,
+            Arc::new(prover.a_aux_density),
+            aux_assignment.clone(),
+            &mut multiexp_kern,
+        )
+    };
 
     let b_input_density = Arc::new(prover.b_input_density);
     let b_input_density_total = b_input_density.get_total_density();
@@ -314,38 +409,121 @@ where
     let (b_g1_inputs_source, b_g1_aux_source) =
         params.get_b_g1(b_input_density_total, b_aux_density_total)?;
 
-    let b_g1_inputs = multiexp(
-        &worker,
-        b_g1_inputs_source,
-        b_input_density.clone(),
-        input_assignment.clone(),
-        &mut multiexp_kern,
-    );
-    let b_g1_aux = multiexp(
-        &worker,
-        b_g1_aux_source,
-        b_aux_density.clone(),
-        aux_assignment.clone(),
-        &mut multiexp_kern,
-    );
+    let b_g1_inputs = if !check_for_higher_prio!() || keep_cpu {
+        #[cfg(feature = "gpu")]
+        {
+            info!("Multiexp 5 Prover found acquire lock, switching to CPU");
+            // Free the incoming process to use the GPU
+            if !keep_cpu {
+                keep_cpu = true;
+                lock.unlock()?;
+            }
+        }
+        multiexp(
+            &worker,
+            b_g1_inputs_source,
+            b_input_density.clone(),
+            input_assignment.clone(),
+            &mut None,
+        )
+    } else {
+        info!("Multiexp 5 Prover NO acquire lock, keeping GPU");
+        multiexp(
+            &worker,
+            b_g1_inputs_source,
+            b_input_density.clone(),
+            input_assignment.clone(),
+            &mut multiexp_kern,
+        )
+    };
+
+    let b_g1_aux = if !check_for_higher_prio!() || keep_cpu {
+        #[cfg(feature = "gpu")]
+        {
+            info!("Multiexp 6 Prover found acquire lock, switching to CPU");
+            // Free the incoming process to use the GPU
+            if !keep_cpu {
+                keep_cpu = true;
+                lock.unlock()?;
+            }
+        }
+        multiexp(
+            &worker,
+            b_g1_aux_source,
+            b_aux_density.clone(),
+            aux_assignment.clone(),
+            &mut None,
+        )
+    } else {
+        info!("Multiexp 6 Prover NO acquire lock, keeping GPU");
+        multiexp(
+            &worker,
+            b_g1_aux_source,
+            b_aux_density.clone(),
+            aux_assignment.clone(),
+            &mut multiexp_kern,
+        )
+    };
 
     let (b_g2_inputs_source, b_g2_aux_source) =
         params.get_b_g2(b_input_density_total, b_aux_density_total)?;
 
-    let b_g2_inputs = multiexp(
-        &worker,
-        b_g2_inputs_source,
-        b_input_density,
-        input_assignment,
-        &mut multiexp_kern,
-    );
-    let b_g2_aux = multiexp(
-        &worker,
-        b_g2_aux_source,
-        b_aux_density,
-        aux_assignment,
-        &mut multiexp_kern,
-    );
+    let b_g2_inputs = if !check_for_higher_prio!() || keep_cpu {
+        #[cfg(feature = "gpu")]
+        {
+            info!("Multiexp 7 Prover found acquire lock, switching to CPU");
+            // Free the incoming process to use the GPU
+            if !keep_cpu {
+                keep_cpu = true;
+                lock.unlock()?;
+            }
+        }
+        multiexp(
+            &worker,
+            b_g2_inputs_source,
+            b_input_density,
+            input_assignment,
+            &mut None,
+        )
+    } else {
+        info!("Multiexp 7 Prover NO acquire lock, keeping GPU");
+        multiexp(
+            &worker,
+            b_g2_inputs_source,
+            b_input_density,
+            input_assignment,
+            &mut multiexp_kern,
+        )
+    };
+
+    let b_g2_aux = if !check_for_higher_prio!() || keep_cpu {
+        #[cfg(feature = "gpu")]
+        {
+            info!("Multiexp 8 Prover found acquire lock, switching to CPU");
+            // Free the incoming process to use the GPU
+            if !keep_cpu {
+                lock.unlock()?;
+            }
+        }
+        multiexp(
+            &worker,
+            b_g2_aux_source,
+            b_aux_density,
+            aux_assignment,
+            &mut None,
+        )
+    } else {
+        info!("Multiexp 8 Prover NO acquire lock, keeping GPU");
+        multiexp(
+            &worker,
+            b_g2_aux_source,
+            b_aux_density,
+            aux_assignment,
+            &mut multiexp_kern,
+        )
+    };
+    #[cfg(feature = "gpu")]
+    gpu::unlock(lock);
 
     if vk.delta_g1.is_zero() || vk.delta_g2.is_zero() {
         // If this element is zero, someone is trying to perform a
@@ -382,9 +560,6 @@ where
     g_c.add_assign(&b1_answer);
     g_c.add_assign(&h.wait()?);
     g_c.add_assign(&l.wait()?);
-
-    #[cfg(feature = "gpu")]
-    gpu::unlock(lock);
 
     Ok(Proof {
         a: g_a.into_affine(),

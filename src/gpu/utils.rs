@@ -74,22 +74,57 @@ pub fn get_memory(d: Device) -> GPUResult<u64> {
     }
 }
 
-#[derive(Debug)]
-pub struct LockedFile(File);
-
 pub const LOCK_NAME: &str = "/tmp/bellman.lock";
+pub const ACQUIRE_NAME: &str = "/tmp/acquire_bellman.lock";
+pub const LOCK_NULL: &str = "/tmp/null.lock";
 
-pub fn lock() -> io::Result<LockedFile> {
+pub struct LFile(File);
+
+pub fn get_lock_file() -> io::Result<File> {
     info!("Creating GPU lock file");
     let file = File::create(LOCK_NAME)?;
 
     file.lock_exclusive()?;
 
     info!("GPU lock file acquired");
-    Ok(LockedFile(file))
+    Ok(file)
 }
 
-pub fn unlock(lock: LockedFile) {
+pub fn pseudo_lock() -> io::Result<File> {
+    let file = File::create(LOCK_NULL)?;
+    Ok(file)
+}
+
+pub fn unlock(lock: File) {
     drop(lock);
     info!("GPU lock file released");
+}
+
+pub fn gpu_is_available() -> Result<bool, io::Error> {
+    let file = File::create(LOCK_NAME)?;
+    let _test = file.try_lock_exclusive()?;
+    drop(file);
+    Ok(true)
+}
+
+pub fn acquire_gpu() -> io::Result<File> {
+    info!("Creating Acquire GPU lock file");
+    let file = File::create(ACQUIRE_NAME)?;
+
+    file.lock_exclusive()?;
+
+    info!("Higher Priority GPU lock file acquired");
+    Ok(file)
+}
+
+pub fn gpu_is_not_acquired() -> Result<bool, io::Error> {
+    let file = File::create(ACQUIRE_NAME)?;
+    let _test = file.try_lock_exclusive()?;
+    drop(file);
+    Ok(true)
+}
+
+pub fn drop_acquire_lock(acquire_lock: File) {
+    drop(acquire_lock);
+    info!("GPU acquire lock file released");
 }
