@@ -104,3 +104,18 @@ pub fn unlock(lock: LockedFile) {
     drop(lock);
     info!("GPU lock file released");
 }
+
+// lazy_static::lazy_static! {
+//     static ref IS_ME : Mutex<bool> = Mutex::new(false);
+// }
+// pub fn gpu_acquire() {
+//     *IS_ME.lock().unwrap() = true;
+//     File::create(FILE_NAME).unwrap();
+// }
+// pub fn gpu_release() {
+//     *IS_ME.lock().unwrap() = false;
+//     remove_file(FILE_NAME).unwrap();
+// }
+// pub fn gpu_is_available() -> bool {
+//     // Either taken by me or not taken by somebody else
+//     *IS_ME.lock().unwrap() || !Path::new(FILE_NAME).exists()
