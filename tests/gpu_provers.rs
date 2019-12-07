@@ -7,6 +7,9 @@ extern crate ff;
 extern crate log;
 use bellperson::{Circuit, ConstraintSystem, SynthesisError};
 use bellperson::groth16::{Parameters};
+use bellperson::gpu;
+use log::info;
+
 use paired::{Engine};
 use ff::{Field, PrimeField};
 
@@ -65,7 +68,7 @@ impl <E: Engine> Circuit<E> for DummyDemo<E> {
             x_val.ok_or(SynthesisError::AssignmentMissing)
         })?;
 
-        for k in 0..1_000 {
+        for k in 0..100_000 {
             // Allocate: x * x = x2
             let x2_val = x_val.map(|mut e| {
                 e.square();
@@ -145,27 +148,42 @@ pub fn test_parallel_prover(){
     let r2 = Fr::random(rng);
     let s2 = Fr::random(rng);
 
+    let res = match gpu::gpu_is_available() {
+        Ok(n) => n,
+        Err(err) => false,
+    };
+
+    if res == true { info!("GPU IS Available!..."); }
+
     thread::spawn(move || {
-        println!("Creating proof from HIGHER priority process...");
+        println!("Creating proof from LOWER priority process...");
         // Create an instance of circuit
 
         thread::sleep(Duration::from_millis(1));
         let proof_higher = create_proof(c2, &params2, r2, s2).unwrap();
-        println!("Proof Higher is verified: {}", verify_proof(
+        println!("Proof Lower is verified: {}", verify_proof(
             &pvk2,
             &proof_higher,
             &[]
         ).unwrap());
     });
 
-    println!("Creating proof from LOWER priority process...");
     // Create a groth16 proof with our parameters.
     thread::sleep(Duration::from_millis(1000));
+    println!("Creating proof from HIGHER priority process...");
+
+    match gpu::gpu_is_available() {
+        Ok(n) => println!("GPU Available: {}", n),
+        Err(err) => println!("Error: {}", err),
+    }
+    //let test = gpu::gpu_is_available();
+    //println!("is process taken? {:?}", test);
+
     let proof_lower = create_proof(c, &params, r1, s1).unwrap();
-    //thread::sleep(Duration::from_millis(1000));
+
     //println!("Total proof gen finished in {}s and {}ms", now.elapsed().as_secs(), now.elapsed().subsec_nanos()/1000000);
 
-    println!("Proof Lower is verified: {}", verify_proof(
+    println!("Proof Higher is verified: {}", verify_proof(
         &pvk,
         &proof_lower,
         &[]

@@ -105,6 +105,13 @@ pub fn unlock(lock: LockedFile) {
     info!("GPU lock file released");
 }
 
+pub fn gpu_is_available() -> Result<bool, io::Error> {
+    let file = File::create(LOCK_NAME)?;
+    let test = file.try_lock_exclusive()?;
+    drop(file);
+    Ok(true)
+}
+
 // lazy_static::lazy_static! {
 //     static ref IS_ME : Mutex<bool> = Mutex::new(false);
 // }
