@@ -18,29 +18,16 @@ use std::io::prelude::*;
 
 use std::time::{Duration, Instant};
 use std::thread;
+use std::{env, io};
 
 // For randomness (during paramgen and proof generation)
 use self::rand::{thread_rng, Rng};
-
-// Bring in some tools for using pairing-friendly curves
-// use self::paired::{
-//     Engine
-// };
-
-//use self::ff::{Field,PrimeField};
 
 // We're going to use the BLS12-381 pairing-friendly elliptic curve.
 use self::paired::bls12_381::{
     Bls12,
     Fr
 };
-
-// We'll use these interfaces to construct our circuit.
-// use self::bellperson::{
-//     Circuit,
-//     ConstraintSystem,
-//     SynthesisError
-// };
 
 // We're going to use the Groth16 proving system.
 use self::bellperson::groth16::{
@@ -101,9 +88,6 @@ impl <E: Engine> Circuit<E> for DummyDemo<E> {
     }
 }
 
-
-//mod dummy;
-
 #[cfg(feature = "gpu-test")]
 #[test]
 pub fn test_parallel_prover(){
@@ -153,39 +137,67 @@ pub fn test_parallel_prover(){
         Err(err) => false,
     };
 
-    if res == true { info!("GPU IS Available!..."); }
+    if res == true { info!("GPU is available!..."); }
 
     thread::spawn(move || {
-        println!("Creating proof from LOWER priority process...");
+        info!("Creating proof from LOWER priority process...");
         // Create an instance of circuit
 
         thread::sleep(Duration::from_millis(1));
-        let proof_higher = create_proof(c2, &params2, r2, s2).unwrap();
-        println!("Proof Lower is verified: {}", verify_proof(
+        let proof_lower = create_proof(c2, &params2, r2, s2).unwrap();
+        info!("Proof Lower is verified: {}", verify_proof(
             &pvk2,
-            &proof_higher,
+            &proof_lower,
             &[]
         ).unwrap());
     });
 
     // Create a groth16 proof with our parameters.
     thread::sleep(Duration::from_millis(1000));
-    println!("Creating proof from HIGHER priority process...");
+    info!("Creating proof from HIGHER priority process...");
 
-    match gpu::gpu_is_available() {
-        Ok(n) => println!("GPU Available: {}", n),
-        Err(err) => println!("Error: {}", err),
-    }
-    //let test = gpu::gpu_is_available();
-    //println!("is process taken? {:?}", test);
+    // match gpu::gpu_is_available() {
+    //     Ok(n) => println!("GPU Available: {}", n),
+    //     Err(err) => println!("Error: {}", err),
+    // }
 
-    let proof_lower = create_proof(c, &params, r1, s1).unwrap();
+    let check = match gpu::gpu_is_available() {
+        Ok(n) => n,
+        Err(err) => false,
+    };
+
+    let mut a_lock: Option<bellperson::gpu::LockedFile> = None;
+    if check != true { 
+        info!("GPU is NOT Available! Attempting to acuire the GPU...");
+        a_lock = Some(gpu::acquire_gpu().unwrap());
+        // We need to drop the acquire lock as soon as the lower prio 
+        // process has freed the main lock so that the higher uses GPU
+        loop {
+            //info!("checking to see if lower prio process has freed GPU");
+            let available = match gpu::gpu_is_available() {
+                Ok(n) => n,
+                Err(err) => false,
+            };
+            if available {
+                info!("GPU free from lower prio process. Dropping acquire gpu file lock from switching process...");
+                gpu::drop_acquire_lock(a_lock.unwrap());
+                break;
+            };
+            continue;       
+        }
+    };
+
+    let proof_higher = create_proof(c, &params, r1, s1).unwrap();
+
+    // info!("Dropping acquire gpu file lock...");
+    // #[cfg(feature = "gpu")]
+    // gpu::drop_acquire_lock(a_lock.unwrap());
 
     //println!("Total proof gen finished in {}s and {}ms", now.elapsed().as_secs(), now.elapsed().subsec_nanos()/1000000);
 
-    println!("Proof Higher is verified: {}", verify_proof(
+    info!("Proof Higher is verified: {}", verify_proof(
         &pvk,
-        &proof_lower,
+        &proof_higher,
         &[]
     ).unwrap());
 }

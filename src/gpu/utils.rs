@@ -89,6 +89,7 @@ pub fn get_memory(d: Device) -> GPUResult<u64> {
 pub struct LockedFile(File);
 
 pub const LOCK_NAME: &str = "/tmp/bellman.lock";
+pub const ACQUIRE_NAME: &str = "/tmp/acquire_bellman.lock";
 
 pub fn lock() -> io::Result<LockedFile> {
     info!("Creating GPU lock file");
@@ -110,6 +111,28 @@ pub fn gpu_is_available() -> Result<bool, io::Error> {
     let test = file.try_lock_exclusive()?;
     drop(file);
     Ok(true)
+}
+
+pub fn acquire_gpu() -> io::Result<LockedFile>  {
+    info!("Creating Acquire GPU lock file");
+    let file = File::create(ACQUIRE_NAME)?;
+
+    file.lock_exclusive()?;
+
+    info!("Higher Priority GPU lock file acquired");
+    Ok(LockedFile(file))
+}
+
+pub fn gpu_is_not_acquired() -> Result<bool, io::Error> {
+    let file = File::create(ACQUIRE_NAME)?;
+    let test = file.try_lock_exclusive()?;
+    drop(file);
+    Ok(true)
+}
+
+pub fn drop_acquire_lock(acquire_lock: LockedFile) {
+    drop(acquire_lock);
+    info!("GPU acquire lock file released");
 }
 
 // lazy_static::lazy_static! {
