@@ -85,55 +85,123 @@ pub fn get_memory(d: Device) -> GPUResult<u64> {
     }
 }
 
-#[derive(Debug)]
-pub struct LockedFile(File);
-
 pub const LOCK_NAME: &str = "/tmp/bellman.lock";
 pub const ACQUIRE_NAME: &str = "/tmp/acquire_bellman.lock";
+pub const LOCK_NULL: &str = "/tmp/null.lock";
 
-pub fn lock() -> io::Result<LockedFile> {
-    info!("Creating GPU lock file");
-    let file = File::create(LOCK_NAME)?;
-
-    file.lock_exclusive()?;
-
-    info!("GPU lock file acquired");
-    Ok(LockedFile(file))
+#[derive(Debug)]
+pub struct LockedFile{
+  main_lock: File,
+  acquire_lock: File,
 }
 
-pub fn unlock(lock: LockedFile) {
-    drop(lock);
-    info!("GPU lock file released");
+impl LockedFile {
+    // pub fn create(file: File) -> Result<LockedFile, io::Error>{
+    //     Ok(LockedFile { main_lock: file })
+    // }
+    pub fn create() -> Result<LockedFile, io::Error> {
+        let mut file = File::create(LOCK_NULL)?;
+        let mut file2 = File::create(LOCK_NULL)?;
+        Ok(LockedFile { main_lock: file, acquire_lock: file2, })
+    }
+
+    // fn setFile(&self, file: io::Result<LockedFile>) {
+    //   self.f = file;
+    // }
+
+    pub fn lock(&mut self) -> Result<bool, io::Error> {
+        info!("Creating GPU lock file");
+        let file = File::create(LOCK_NAME)?;
+
+        file.lock_exclusive()?;
+        //LockedFile::create(file)?;
+        self.main_lock = file;
+        info!("GPU lock file acquired");
+        Ok(true)
+    }
+
+    pub fn unlock(&mut self) {
+        drop(&self.main_lock);
+        info!("GPU lock file released");
+    }
+
+    pub fn gpu_is_available(&mut self) -> Result<bool, io::Error> {
+        let file = File::create(LOCK_NAME)?;
+        let test = file.try_lock_exclusive()?;
+        drop(file);
+        Ok(true)
+    }
+
+    pub fn acquire_gpu(&mut self) -> Result<bool, io::Error> {
+        info!("Creating Acquire GPU lock file");
+        let file = File::create(ACQUIRE_NAME)?;
+
+        file.lock_exclusive()?;
+        self.acquire_lock = file;
+        //self.acquire_lock = file;
+        info!("Higher Priority GPU lock file acquired");
+        Ok(true)
+    }
+
+    pub fn gpu_is_not_acquired(&mut self) -> Result<bool, io::Error> {
+        let file = File::create(ACQUIRE_NAME)?;
+        let test = file.try_lock_exclusive()?;
+        drop(file);
+        Ok(true)
+    }
+
+    pub fn drop_acquire_lock(&mut self) {
+        drop(&self.acquire_lock);
+        info!("GPU acquire lock file released");
+    }
 }
 
-pub fn gpu_is_available() -> Result<bool, io::Error> {
-    let file = File::create(LOCK_NAME)?;
-    let test = file.try_lock_exclusive()?;
-    drop(file);
-    Ok(true)
-}
+// pub fn get_lock_file() -> io::Result<File> {
+//     info!("Creating GPU lock file");
+//     let file = File::create(LOCK_NAME)?;
 
-pub fn acquire_gpu() -> io::Result<LockedFile>  {
-    info!("Creating Acquire GPU lock file");
-    let file = File::create(ACQUIRE_NAME)?;
+//     file.lock_exclusive()?;
 
-    file.lock_exclusive()?;
+//     info!("GPU lock file acquired");
+//     Ok(file)
+// }
 
-    info!("Higher Priority GPU lock file acquired");
-    Ok(LockedFile(file))
-}
+// pub fn unlock(lock: LockedFile) {
+//     drop(lock);
+//     info!("GPU lock file released");
+// }
 
-pub fn gpu_is_not_acquired() -> Result<bool, io::Error> {
-    let file = File::create(ACQUIRE_NAME)?;
-    let test = file.try_lock_exclusive()?;
-    drop(file);
-    Ok(true)
-}
+// pub fn gpu_is_available() -> Result<bool, io::Error> {
+//     let file = File::create(LOCK_NAME)?;
+//     let test = file.try_lock_exclusive()?;
+//     drop(file);
+//     Ok(true)
+// }
 
-pub fn drop_acquire_lock(acquire_lock: LockedFile) {
-    drop(acquire_lock);
-    info!("GPU acquire lock file released");
-}
+// pub fn acquire_gpu() -> io::Result<LockedFile>  {
+//     info!("Creating Acquire GPU lock file");
+//     let file = File::create(ACQUIRE_NAME)?;
+
+//     file.lock_exclusive()?;
+
+//     info!("Higher Priority GPU lock file acquired");
+//     Ok(LockedFile(file))
+// }
+
+// pub fn gpu_is_not_acquired() -> Result<bool, io::Error> {
+//     let file = File::create(ACQUIRE_NAME)?;
+//     let test = file.try_lock_exclusive()?;
+//     drop(file);
+//     Ok(true)
+// }
+
+// pub fn drop_acquire_lock(acquire_lock: LockedFile) {
+//     drop(acquire_lock);
+//     info!("GPU acquire lock file released");
+// }
+
+
+
 
 // lazy_static::lazy_static! {
 //     static ref IS_ME : Mutex<bool> = Mutex::new(false);

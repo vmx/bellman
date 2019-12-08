@@ -132,7 +132,11 @@ pub fn test_parallel_prover(){
     let r2 = Fr::random(rng);
     let s2 = Fr::random(rng);
 
-    let res = match gpu::gpu_is_available() {
+    #[cfg(feature = "gpu")]
+    //let lock = gpu::get_lock_file()?;
+    let mut slock = gpu::LockedFile::create().unwrap();
+
+    let res = match slock.gpu_is_available() {
         Ok(n) => n,
         Err(err) => false,
     };
@@ -153,7 +157,7 @@ pub fn test_parallel_prover(){
     });
 
     // Create a groth16 proof with our parameters.
-    thread::sleep(Duration::from_millis(1000));
+    thread::sleep(Duration::from_millis(500));
     info!("Creating proof from HIGHER priority process...");
 
     // match gpu::gpu_is_available() {
@@ -161,26 +165,32 @@ pub fn test_parallel_prover(){
     //     Err(err) => println!("Error: {}", err),
     // }
 
-    let check = match gpu::gpu_is_available() {
+    let check = match slock.gpu_is_available() {
         Ok(n) => n,
         Err(err) => false,
     };
 
-    let mut a_lock: Option<bellperson::gpu::LockedFile> = None;
+    //let mut a_lock: Option<bellperson::gpu::LockedFile> = None;
     if check != true { 
         info!("GPU is NOT Available! Attempting to acuire the GPU...");
-        a_lock = Some(gpu::acquire_gpu().unwrap());
+        //a_lock = Some(gpu::acquire_gpu().unwrap());
+        slock.acquire_gpu().unwrap();
         // We need to drop the acquire lock as soon as the lower prio 
         // process has freed the main lock so that the higher uses GPU
         loop {
             //info!("checking to see if lower prio process has freed GPU");
-            let available = match gpu::gpu_is_available() {
+            let available = match slock.gpu_is_available() {
                 Ok(n) => n,
                 Err(err) => false,
             };
             if available {
                 info!("GPU free from lower prio process. Dropping acquire gpu file lock from switching process...");
-                gpu::drop_acquire_lock(a_lock.unwrap());
+                slock.drop_acquire_lock().unwrap();
+                let check_for_higher_prio = match slock.gpu_is_not_acquired() {
+                    Ok(n) => n,
+                    Err(_err) => false,
+                };
+                println!("IS GPU ACQUIRE LOCK DROPPED: {:?}", check_for_higher_prio);
                 break;
             };
             continue;       
