@@ -173,12 +173,6 @@ where
     create_proof::<E, C, P>(circuit, params, r, s)
 }
 
-// pub fn lock_gpu(bool: unlock) {
-//     #[cfg(feature = "gpu")]
-//     let lock = gpu::lock()?;
-
-// }
-
 pub fn create_proof<E, C, P: ParameterSource<E>>(
     circuit: C,
     mut params: P,
@@ -270,19 +264,26 @@ where
 
     // We check to see if another higher priority process needs to use 
     // the GPU for each multiexp
-    let check_for_higher_prio = match gpu::gpu_is_not_acquired() {
-        Ok(n) => n,
-        Err(_err) => false,
-    };
+    let mut check_for_higher_prio = false;
+    #[cfg(feature = "gpu")]
+    {
+        check_for_higher_prio = match gpu::gpu_is_not_acquired() {
+            Ok(n) => n,
+            Err(_err) => false,
+        };
+    }
     let mut keep_cpu = false;
 
     let h = if !check_for_higher_prio || keep_cpu {
         info!("Multiexp 1 Prover found acquire lock, switching to CPU");
         // Free the incoming process to use the GPU
         if !keep_cpu { keep_cpu = true; }
-        gpu::unlock(lock);
-        // Trick for allowing lock to be unlocked at any given multiexp
-        lock = gpu::pseudo_lock().unwrap();
+        #[cfg(feature = "gpu")]
+        {
+            gpu::unlock(lock);
+            // Trick for allowing lock to be unlocked at any given multiexp
+            let lock = gpu::pseudo_lock().unwrap();
+        }
         multiexp(
           &worker,
           params.get_h(a.len())?,
@@ -317,16 +318,22 @@ where
     );
 
     // Keep checking between multiexp
-    let check_for_higher_prio = match gpu::gpu_is_not_acquired() {
-        Ok(n) => n,
-        Err(_err) => false,
-    };
+    #[cfg(feature = "gpu")]
+    {
+        check_for_higher_prio = match gpu::gpu_is_not_acquired() {
+            Ok(n) => n,
+            Err(_err) => false,
+        };
+    }
 
     let l = if !check_for_higher_prio || keep_cpu {
         info!("Multiexp 2 Prover found acquire lock, switching to CPU");
         if !keep_cpu { keep_cpu = true; }
-        gpu::unlock(lock);
-        lock = gpu::pseudo_lock().unwrap();
+        #[cfg(feature = "gpu")]
+        {
+            gpu::unlock(lock);
+            let lock = gpu::pseudo_lock().unwrap();
+        }
         multiexp(
           &worker,
           params.get_l(aux_assignment.len())?,
@@ -349,17 +356,22 @@ where
     let (a_inputs_source, a_aux_source) =
         params.get_a(input_assignment.len(), a_aux_density_total)?;
 
-
-    let check_for_higher_prio = match gpu::gpu_is_not_acquired() {
-        Ok(n) => n,
-        Err(_err) => false,
-    };
+    #[cfg(feature = "gpu")]
+    {
+        check_for_higher_prio = match gpu::gpu_is_not_acquired() {
+            Ok(n) => n,
+            Err(_err) => false,
+        };
+    }
 
     let a_inputs = if !check_for_higher_prio || keep_cpu {
         info!("Multiexp 3 Prover found acquire lock, switching to CPU");
         if !keep_cpu { keep_cpu = true; }
-        gpu::unlock(lock);
-        lock = gpu::pseudo_lock().unwrap();
+        #[cfg(feature = "gpu")]
+        {
+            gpu::unlock(lock);
+            let lock = gpu::pseudo_lock().unwrap();
+        }
         multiexp(
           &worker,
           a_inputs_source,
@@ -377,16 +389,22 @@ where
           &mut multiexp_kern,       
     )};
 
-    let check_for_higher_prio = match gpu::gpu_is_not_acquired() {
-        Ok(n) => n,
-        Err(_err) => false,
-    };
+    #[cfg(feature = "gpu")]
+    {
+        check_for_higher_prio = match gpu::gpu_is_not_acquired() {
+            Ok(n) => n,
+            Err(_err) => false,
+        };
+    }
 
     let a_aux = if !check_for_higher_prio || keep_cpu {
         info!("Multiexp 4 Prover found acquire lock, switching to CPU");
         if !keep_cpu { keep_cpu = true; }
-        gpu::unlock(lock);
-        lock = gpu::pseudo_lock().unwrap();
+        #[cfg(feature = "gpu")]
+        {
+            gpu::unlock(lock);
+            let lock = gpu::pseudo_lock().unwrap();
+        }
         multiexp(
           &worker,
           a_aux_source,
@@ -413,16 +431,22 @@ where
         params.get_b_g1(b_input_density_total, b_aux_density_total)?;
 
 
-    let check_for_higher_prio = match gpu::gpu_is_not_acquired() {
-        Ok(n) => n,
-        Err(_err) => false,
-    };
+    #[cfg(feature = "gpu")]
+    {
+        check_for_higher_prio = match gpu::gpu_is_not_acquired() {
+            Ok(n) => n,
+            Err(_err) => false,
+        };
+    }
 
     let b_g1_inputs = if !check_for_higher_prio || keep_cpu {
         info!("Multiexp 5 Prover found acquire lock, switching to CPU");
         if !keep_cpu { keep_cpu = true; }
-        gpu::unlock(lock);
-        lock = gpu::pseudo_lock().unwrap();
+        #[cfg(feature = "gpu")]
+        {
+            gpu::unlock(lock);
+            let lock = gpu::pseudo_lock().unwrap();
+        }
         multiexp(
           &worker,
           b_g1_inputs_source,
@@ -440,16 +464,22 @@ where
           &mut multiexp_kern,        
     )};
 
-    let check_for_higher_prio = match gpu::gpu_is_not_acquired() {
-        Ok(n) => n,
-        Err(_err) => false,
-    };
+    #[cfg(feature = "gpu")]
+    {
+        check_for_higher_prio = match gpu::gpu_is_not_acquired() {
+            Ok(n) => n,
+            Err(_err) => false,
+        };
+    }
 
     let b_g1_aux = if !check_for_higher_prio || keep_cpu {
         info!("Multiexp 6 Prover found acquire lock, switching to CPU");
         if !keep_cpu { keep_cpu = true; }
-        gpu::unlock(lock);
-        lock = gpu::pseudo_lock().unwrap();
+        #[cfg(feature = "gpu")]
+        {
+            gpu::unlock(lock);
+            let lock = gpu::pseudo_lock().unwrap();
+        }
         multiexp(
           &worker,
           b_g1_aux_source,
@@ -471,16 +501,22 @@ where
         params.get_b_g2(b_input_density_total, b_aux_density_total)?;
 
 
-    let check_for_higher_prio = match gpu::gpu_is_not_acquired() {
-        Ok(n) => n,
-        Err(_err) => false,
-    };
+    #[cfg(feature = "gpu")]
+    {
+        check_for_higher_prio = match gpu::gpu_is_not_acquired() {
+            Ok(n) => n,
+            Err(_err) => false,
+        };
+    }
 
     let b_g2_inputs = if !check_for_higher_prio || keep_cpu {
         info!("Multiexp 7 Prover found acquire lock, switching to CPU");
         if !keep_cpu { keep_cpu = true; }
-        gpu::unlock(lock);
-        lock = gpu::pseudo_lock().unwrap();
+        #[cfg(feature = "gpu")]
+        {
+            gpu::unlock(lock);
+            let lock = gpu::pseudo_lock().unwrap();
+        }
         multiexp(
           &worker,
           b_g2_inputs_source,
@@ -498,16 +534,22 @@ where
           &mut multiexp_kern,
     )};
 
-    let check_for_higher_prio = match gpu::gpu_is_not_acquired() {
-        Ok(n) => n,
-        Err(_err) => false,
-    };
+    #[cfg(feature = "gpu")]
+    {
+        check_for_higher_prio = match gpu::gpu_is_not_acquired() {
+            Ok(n) => n,
+            Err(_err) => false,
+        };
+    }
 
     let b_g2_aux = if !check_for_higher_prio || keep_cpu {
         info!("Multiexp 8 Prover found acquire lock, switching to CPU");
         if !keep_cpu { keep_cpu = true; }
-        gpu::unlock(lock);
-        lock = gpu::pseudo_lock().unwrap();
+        #[cfg(feature = "gpu")]
+        {
+            gpu::unlock(lock);
+            let lock = gpu::pseudo_lock().unwrap();
+        }
         multiexp(
           &worker,
           b_g2_aux_source,
@@ -524,6 +566,7 @@ where
           aux_assignment,
           &mut multiexp_kern,
     )};
+    #[cfg(feature = "gpu")]
     gpu::unlock(lock);
 
     if vk.delta_g1.is_zero() || vk.delta_g2.is_zero() {
