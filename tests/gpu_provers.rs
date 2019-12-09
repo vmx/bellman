@@ -55,7 +55,7 @@ impl <E: Engine> Circuit<E> for DummyDemo<E> {
             x_val.ok_or(SynthesisError::AssignmentMissing)
         })?;
 
-        for k in 0..100_000 {
+        for k in 0..500_000 {
             // Allocate: x * x = x2
             let x2_val = x_val.map(|mut e| {
                 e.square();
@@ -132,11 +132,8 @@ pub fn test_parallel_prover(){
     let r2 = Fr::random(rng);
     let s2 = Fr::random(rng);
 
-    #[cfg(feature = "gpu")]
-    //let lock = gpu::get_lock_file()?;
-    let mut slock = gpu::LockedFile::create().unwrap();
-
-    let res = match slock.gpu_is_available() {
+    // test function to see if GPU is available
+    let res = match gpu::gpu_is_available() {
         Ok(n) => n,
         Err(err) => false,
     };
@@ -146,8 +143,6 @@ pub fn test_parallel_prover(){
     thread::spawn(move || {
         info!("Creating proof from LOWER priority process...");
         // Create an instance of circuit
-
-        thread::sleep(Duration::from_millis(1));
         let proof_lower = create_proof(c2, &params2, r2, s2).unwrap();
         info!("Proof Lower is verified: {}", verify_proof(
             &pvk2,
@@ -156,41 +151,30 @@ pub fn test_parallel_prover(){
         ).unwrap());
     });
 
-    // Create a groth16 proof with our parameters.
-    thread::sleep(Duration::from_millis(500));
+    // Have higher prio proof wait long enough to interupt lower
+    thread::sleep(Duration::from_millis(5100));
     info!("Creating proof from HIGHER priority process...");
 
-    // match gpu::gpu_is_available() {
-    //     Ok(n) => println!("GPU Available: {}", n),
-    //     Err(err) => println!("Error: {}", err),
-    // }
-
-    let check = match slock.gpu_is_available() {
+    let check = match gpu::gpu_is_available() {
         Ok(n) => n,
         Err(err) => false,
     };
 
-    //let mut a_lock: Option<bellperson::gpu::LockedFile> = None;
     if check != true { 
         info!("GPU is NOT Available! Attempting to acuire the GPU...");
-        //a_lock = Some(gpu::acquire_gpu().unwrap());
-        slock.acquire_gpu().unwrap();
+        let a_lock = Some(gpu::acquire_gpu().unwrap());
+
         // We need to drop the acquire lock as soon as the lower prio 
         // process has freed the main lock so that the higher uses GPU
         loop {
             //info!("checking to see if lower prio process has freed GPU");
-            let available = match slock.gpu_is_available() {
+            let available = match gpu::gpu_is_available() {
                 Ok(n) => n,
                 Err(err) => false,
             };
             if available {
                 info!("GPU free from lower prio process. Dropping acquire gpu file lock from switching process...");
-                slock.drop_acquire_lock().unwrap();
-                let check_for_higher_prio = match slock.gpu_is_not_acquired() {
-                    Ok(n) => n,
-                    Err(_err) => false,
-                };
-                println!("IS GPU ACQUIRE LOCK DROPPED: {:?}", check_for_higher_prio);
+                gpu::drop_acquire_lock(a_lock.unwrap());
                 break;
             };
             continue;       
@@ -199,16 +183,13 @@ pub fn test_parallel_prover(){
 
     let proof_higher = create_proof(c, &params, r1, s1).unwrap();
 
-    // info!("Dropping acquire gpu file lock...");
-    // #[cfg(feature = "gpu")]
-    // gpu::drop_acquire_lock(a_lock.unwrap());
-
     //println!("Total proof gen finished in {}s and {}ms", now.elapsed().as_secs(), now.elapsed().subsec_nanos()/1000000);
-
     info!("Proof Higher is verified: {}", verify_proof(
         &pvk,
         &proof_higher,
         &[]
     ).unwrap());
+    // Let lower prior proof finish
+    thread::sleep(Duration::from_millis(4100));
 }
 
