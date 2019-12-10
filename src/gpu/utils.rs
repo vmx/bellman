@@ -113,7 +113,7 @@ pub fn unlock(lock: File) {
 
 pub fn gpu_is_available() -> Result<bool, io::Error> {
     let file = File::create(LOCK_NAME)?;
-    let test = file.try_lock_exclusive()?;
+    let _test = file.try_lock_exclusive()?;
     drop(file);
     Ok(true)
 }
@@ -130,7 +130,7 @@ pub fn acquire_gpu() -> io::Result<File>  {
 
 pub fn gpu_is_not_acquired() -> Result<bool, io::Error> {
     let file = File::create(ACQUIRE_NAME)?;
-    let test = file.try_lock_exclusive()?;
+    let _test = file.try_lock_exclusive()?;
     drop(file);
     Ok(true)
 }
