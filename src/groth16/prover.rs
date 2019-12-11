@@ -18,14 +18,13 @@ use crate::{Circuit, ConstraintSystem, Index, LinearCombination, SynthesisError,
 
 // We check to see if another higher priority process needs to use
 // the GPU for each multiexp
-#[allow(unused_macros)]
+#[cfg(not(feature = "gpu"))]
 macro_rules! check_for_higher_prio {
     () => {
         true
     };
 }
 
-#[allow(unused_macros)]
 #[cfg(feature = "gpu")]
 macro_rules! check_for_higher_prio {
     () => {
