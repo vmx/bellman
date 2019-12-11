@@ -118,7 +118,7 @@ pub fn gpu_is_available() -> Result<bool, io::Error> {
     Ok(true)
 }
 
-pub fn acquire_gpu() -> io::Result<File>  {
+pub fn acquire_gpu() -> io::Result<File> {
     info!("Creating Acquire GPU lock file");
     let file = File::create(ACQUIRE_NAME)?;
 
