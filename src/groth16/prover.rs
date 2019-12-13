@@ -7,6 +7,8 @@ use futures::Future;
 use groupy::{CurveAffine, CurveProjective};
 use log::{info, warn};
 use paired::Engine;
+#[cfg(feature = "gpu")]
+use fs2::FileExt;
 
 use super::{ParameterSource, Proof};
 use crate::domain::{gpu_fft_supported, EvaluationDomain, Scalar};
@@ -200,7 +202,7 @@ where
     C: Circuit<E>,
 {
     #[cfg(feature = "gpu")]
-    let mut lock = gpu::get_lock_file().unwrap();
+    let lock = gpu::get_lock_file().unwrap();
 
     let mut prover = ProvingAssignment {
         a_aux_density: DensityTracker::new(),
@@ -281,17 +283,14 @@ where
     let mut keep_cpu = false;
 
     let h = if !check_for_higher_prio!() || keep_cpu {
-        #[cfg(feature = "gpu-test")]
-        info!("Multiexp 1 Prover found acquire lock, switching to CPU");
-        // Free the incoming process to use the GPU
-        if !keep_cpu {
-            keep_cpu = true;
-        }
         #[cfg(feature = "gpu")]
         {
-            gpu::unlock(lock);
-            // Trick for allowing lock to be unlocked at any given multiexp
-            lock = gpu::pseudo_lock().unwrap();
+            info!("Multiexp 1 Prover found acquire lock, switching to CPU");
+            // Free the incoming process to use the GPU
+            if !keep_cpu {
+                keep_cpu = true;
+                lock.unlock()?;
+            }
         }
         multiexp(&worker, params.get_h(a.len())?, FullDensity, a, &mut None)
     } else {
@@ -322,14 +321,14 @@ where
     );
 
     let l = if !check_for_higher_prio!() || keep_cpu {
-        info!("Multiexp 2 Prover found acquire lock, switching to CPU");
-        if !keep_cpu {
-            keep_cpu = true;
-        }
         #[cfg(feature = "gpu")]
         {
-            gpu::unlock(lock);
-            lock = gpu::pseudo_lock().unwrap();
+            info!("Multiexp 2 Prover found acquire lock, switching to CPU");
+            // Free the incoming process to use the GPU
+            if !keep_cpu {
+                keep_cpu = true;
+                lock.unlock()?;
+            }
         }
         multiexp(
             &worker,
@@ -355,14 +354,14 @@ where
         params.get_a(input_assignment.len(), a_aux_density_total)?;
 
     let a_inputs = if !check_for_higher_prio!() || keep_cpu {
-        info!("Multiexp 3 Prover found acquire lock, switching to CPU");
-        if !keep_cpu {
-            keep_cpu = true;
-        }
         #[cfg(feature = "gpu")]
         {
-            gpu::unlock(lock);
-            lock = gpu::pseudo_lock().unwrap();
+            info!("Multiexp 3 Prover found acquire lock, switching to CPU");
+            // Free the incoming process to use the GPU
+            if !keep_cpu {
+                keep_cpu = true;
+                lock.unlock()?;
+            }
         }
         multiexp(
             &worker,
@@ -383,14 +382,14 @@ where
     };
 
     let a_aux = if !check_for_higher_prio!() || keep_cpu {
-        info!("Multiexp 4 Prover found acquire lock, switching to CPU");
-        if !keep_cpu {
-            keep_cpu = true;
-        }
         #[cfg(feature = "gpu")]
         {
-            gpu::unlock(lock);
-            lock = gpu::pseudo_lock().unwrap();
+            info!("Multiexp 4 Prover found acquire lock, switching to CPU");
+            // Free the incoming process to use the GPU
+            if !keep_cpu {
+                keep_cpu = true;
+                lock.unlock()?;
+            }
         }
         multiexp(
             &worker,
@@ -419,14 +418,14 @@ where
         params.get_b_g1(b_input_density_total, b_aux_density_total)?;
 
     let b_g1_inputs = if !check_for_higher_prio!() || keep_cpu {
-        info!("Multiexp 5 Prover found acquire lock, switching to CPU");
-        if !keep_cpu {
-            keep_cpu = true;
-        }
         #[cfg(feature = "gpu")]
         {
-            gpu::unlock(lock);
-            lock = gpu::pseudo_lock().unwrap();
+            info!("Multiexp 5 Prover found acquire lock, switching to CPU");
+            // Free the incoming process to use the GPU
+            if !keep_cpu {
+                keep_cpu = true;
+                lock.unlock()?;
+            }
         }
         multiexp(
             &worker,
@@ -447,14 +446,14 @@ where
     };
 
     let b_g1_aux = if !check_for_higher_prio!() || keep_cpu {
-        info!("Multiexp 6 Prover found acquire lock, switching to CPU");
-        if !keep_cpu {
-            keep_cpu = true;
-        }
         #[cfg(feature = "gpu")]
         {
-            gpu::unlock(lock);
-            lock = gpu::pseudo_lock().unwrap();
+            info!("Multiexp 6 Prover found acquire lock, switching to CPU");
+            // Free the incoming process to use the GPU
+            if !keep_cpu {
+                keep_cpu = true;
+                lock.unlock()?;
+            }
         }
         multiexp(
             &worker,
@@ -478,14 +477,14 @@ where
         params.get_b_g2(b_input_density_total, b_aux_density_total)?;
 
     let b_g2_inputs = if !check_for_higher_prio!() || keep_cpu {
-        info!("Multiexp 7 Prover found acquire lock, switching to CPU");
-        if !keep_cpu {
-            keep_cpu = true;
-        }
         #[cfg(feature = "gpu")]
         {
-            gpu::unlock(lock);
-            lock = gpu::pseudo_lock().unwrap();
+            info!("Multiexp 7 Prover found acquire lock, switching to CPU");
+            // Free the incoming process to use the GPU
+            if !keep_cpu {
+                keep_cpu = true;
+                lock.unlock()?;
+            }
         }
         multiexp(
             &worker,
@@ -506,11 +505,13 @@ where
     };
 
     let b_g2_aux = if !check_for_higher_prio!() || keep_cpu {
-        info!("Multiexp 8 Prover found acquire lock, switching to CPU");
         #[cfg(feature = "gpu")]
         {
-            gpu::unlock(lock);
-            lock = gpu::pseudo_lock().unwrap();
+            info!("Multiexp 8 Prover found acquire lock, switching to CPU");
+            // Free the incoming process to use the GPU
+            if !keep_cpu {
+                lock.unlock()?;
+            }
         }
         multiexp(
             &worker,
