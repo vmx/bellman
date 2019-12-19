@@ -131,7 +131,7 @@ pub fn test_parallel_prover() {
     });
 
     // Have higher prio proof wait long enough to interupt lower
-    thread::sleep(Duration::from_millis(5100));
+    thread::sleep(Duration::from_millis(3100));
     info!("Creating proof from HIGHER priority process...");
 
     let check = match gpu::gpu_is_available() {
@@ -147,13 +147,14 @@ pub fn test_parallel_prover() {
         // process has freed the main lock so that the higher uses GPU
         loop {
             //info!("checking to see if lower prio process has freed GPU");
-            let available = match gpu::gpu_is_available() {
-                Ok(n) => n,
-                Err(err) => false,
-            };
-            if available {
+            // let available = match gpu::gpu_is_available() {
+            //     Ok(n) => n,
+            //     Err(err) => false,
+            // };
+            if gpu::gpu_is_available().unwrap_or(false) {
                 info!("GPU free from lower prio process. Dropping acquire gpu file lock from switching process...");
-                gpu::drop_acquire_lock(a_lock.unwrap());
+                //gpu::drop_acquire_lock(a_lock.unwrap());
+                gpu::priority_unlock(a_lock.unwrap());
                 break;
             };
             continue;

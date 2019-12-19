@@ -2,6 +2,7 @@ use bit_vec::{self, BitVec};
 use ff::{Field, PrimeField, PrimeFieldRepr, ScalarEngine};
 use futures::Future;
 use groupy::{CurveAffine, CurveProjective};
+use log::error;
 use std::io;
 use std::iter;
 use std::sync::{Arc, Mutex};
@@ -281,13 +282,12 @@ where
             }
         }
 
-        let (bss, skip) = bases.get();
-        let result = k.multiexp(pool, bss, Arc::new(exps), skip, n);
-
-        return Box::new(pool.compute(move || match result {
-            Ok(p) => Ok(p),
-            Err(e) => Err(SynthesisError::from(e)),
-        }));
+        let (bss, skip) = bases.clone().get();
+        if let Ok(p) = k.multiexp(pool, bss, Arc::new(exps.clone()), skip, n) {
+            return Box::new(pool.compute(move || Ok(p)));
+        } else {
+            error!("GPU Multiexp failed! Falling back to CPU...");
+        }
     }
 
     let c = if exponents.len() < 32 {
