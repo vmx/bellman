@@ -133,6 +133,7 @@ pub fn test_parallel_prover() {
     // Have higher prio proof wait long enough to interupt lower
     thread::sleep(Duration::from_millis(3100));
     info!("Creating proof from HIGHER priority process...");
+    let mut prio_lock = gpu::PriorityLock::new().unwrap();
 
     let check = match gpu::gpu_is_available() {
         Ok(n) => n,
@@ -141,20 +142,13 @@ pub fn test_parallel_prover() {
 
     if check != true {
         info!("GPU is NOT Available! Attempting to acuire the GPU...");
-        let a_lock = Some(gpu::acquire_gpu().unwrap());
+        prio_lock.lock().unwrap();
 
         // We need to drop the acquire lock as soon as the lower prio
         // process has freed the main lock so that the higher uses GPU
         loop {
-            //info!("checking to see if lower prio process has freed GPU");
-            // let available = match gpu::gpu_is_available() {
-            //     Ok(n) => n,
-            //     Err(err) => false,
-            // };
             if gpu::gpu_is_available().unwrap_or(false) {
-                info!("GPU free from lower prio process. Dropping acquire gpu file lock from switching process...");
-                //gpu::drop_acquire_lock(a_lock.unwrap());
-                gpu::priority_unlock(a_lock.unwrap());
+                info!("GPU free from lower prio process.");
                 break;
             };
             continue;
@@ -162,6 +156,8 @@ pub fn test_parallel_prover() {
     };
 
     let proof_higher = create_proof(c, &params, r1, s1).unwrap();
+    info!("Higher Process proof finished, releasing priority lock...");
+    prio_lock.unlock().unwrap();
 
     //println!("Total proof gen finished in {}s and {}ms", now.elapsed().as_secs(), now.elapsed().subsec_nanos()/1000000);
     info!(

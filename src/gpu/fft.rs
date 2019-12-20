@@ -1,6 +1,6 @@
 use crate::gpu::{
     error::{GPUError, GPUResult},
-    utils, sources, structs, GPU_NVIDIA_DEVICES,
+    sources, structs, GPU_NVIDIA_DEVICES,
 };
 use ff::Field;
 use log::info;
@@ -85,12 +85,15 @@ where
         deg: u32,
         max_deg: u32,
         in_src: bool,
-    ) -> GPUResult<()> { // Will this just error and break the prover?
-        if !utils::priority_can_lock().unwrap_or(false) {
-            return Err(GPUError {
-                msg: "GPU is forcefully taken by another process!".to_string(),
-            });
-        }
+    ) -> GPUResult<()> {
+        // Will this just error and break the prover?
+        // if !utils::gpu_is_not_acquired().unwrap_or(false) {
+        //     info!("GPU FFT is forcefully taken by another process! Using CPU");
+        //     return Err(GPUError {
+        //         msg: "GPU is forcefully taken by another process!".to_string(),
+        //     });
+        // }
+        //info!("GPU FFT NOT forcefully taken by another process! Using GPU");
 
         let n = 1u32 << lgn;
         let lwsd = cmp::min(deg - 1, MAX_LOCAL_WORK_SIZE_DEGREE);

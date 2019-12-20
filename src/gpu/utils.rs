@@ -89,93 +89,102 @@ pub const LOCK_NAME: &str = "/tmp/bellman.lock";
 pub const ACQUIRE_NAME: &str = "/tmp/acquire_bellman.lock";
 pub const LOCK_NULL: &str = "/tmp/null.lock";
 
-pub struct LFile(File);
-
 #[derive(Debug)]
 pub struct LockedFile(File);
 
-pub fn get_lock_file() -> io::Result<File> {
+pub fn get_lock_file() -> io::Result<LockedFile> {
     info!("Creating GPU lock file");
     let file = File::create(LOCK_NAME)?;
 
     file.lock_exclusive()?;
 
     info!("GPU lock file acquired");
-    Ok(file)
-}
-
-pub fn unlock(lock: File) {
-    drop(lock);
-    info!("GPU lock file released");
-}
-
-pub fn gpu_is_available() -> Result<bool, io::Error> {
-    let file = File::create(LOCK_NAME)?;
-    let _test = file.try_lock_exclusive()?;
-    drop(file);
-    Ok(true)
-}
-
-// pub fn gpu_is_available() -> io::Result<bool> {
-//     // Either taken by me or not taken by somebody else
-//     Ok(*IS_ME.lock().unwrap()
-//         || File::create(LOCK_NAME)?
-//             .try_lock_exclusive()
-//             .is_ok())
-// }
-
-pub fn acquire_gpu() -> io::Result<LockedFile> {
-    info!("Creating Acquire GPU lock file");
-    let file = File::create(ACQUIRE_NAME)?;
-
-    file.lock_exclusive()?;
-
-    info!("Higher Priority GPU lock file acquired");
     Ok(LockedFile(file))
 }
 
-pub fn gpu_is_not_acquired() -> Result<bool, io::Error> {
-    let file = File::create(ACQUIRE_NAME)?;
+pub fn unlock(lock: &LockedFile) -> io::Result<()> {
+    lock.0.unlock()?;
+    info!("GPU lock file released");
+    Ok(())
+}
+
+//-----
+
+const GPU_LOCK_NAME: &str = "/tmp/bellman.gpu.lock";
+
+#[derive(Debug)]
+pub struct GPULock(File);
+impl GPULock {
+    pub fn new() -> io::Result<GPULock> {
+        let file = File::create(GPU_LOCK_NAME)?;
+        Ok(GPULock(file))
+    }
+    pub fn lock(&mut self) -> io::Result<()> {
+        info!("Acquiring GPU lock...");
+        self.0.lock_exclusive()?;
+        info!("GPU lock acquired!");
+        Ok(())
+    }
+    pub fn unlock(&mut self) -> io::Result<()> {
+        self.0.unlock()?;
+        info!("GPU lock released!");
+        Ok(())
+    }
+}
+
+pub fn gpu_is_available() -> Result<bool, io::Error> {
+    let file = File::create(GPU_LOCK_NAME)?;
     let _test = file.try_lock_exclusive()?;
     drop(file);
     Ok(true)
 }
 
-pub fn drop_acquire_lock(acquire_lock: File) {
-    drop(acquire_lock);
-    info!("GPU acquire lock file released");
-}
-
-pub const PRIORITY_LOCK_NAME: &str = "/tmp/bellman.priority.lock";
+const PRIORITY_LOCK_NAME: &str = "/tmp/bellman.priority.lock";
 
 use std::sync::Mutex;
 lazy_static::lazy_static! {
     static ref IS_ME : Mutex<bool> = Mutex::new(false);
 }
 
-pub fn priority_lock() -> io::Result<LockedFile> {
-    let mut is_me = IS_ME.lock().unwrap();
-    let file = File::create(PRIORITY_LOCK_NAME)?;
-    info!("Creating GPU PRIORITY lock file");
+#[derive(Debug)]
+pub struct PriorityLock(File);
+impl PriorityLock {
+    pub fn new() -> io::Result<PriorityLock> {
+        let file = File::create(PRIORITY_LOCK_NAME)?;
+        Ok(PriorityLock(file))
+    }
+    pub fn lock(&mut self) -> io::Result<()> {
+        let mut is_me = IS_ME.lock().unwrap();
+        *is_me = true;
+        info!("Acquiring priority lock...");
+        self.0.lock_exclusive()?;
+        info!("Priority lock acquired!");
+        Ok(())
+    }
+    pub fn unlock(&mut self) -> io::Result<()> {
+        let mut is_me = IS_ME.lock().unwrap();
+        *is_me = false;
+        self.0.unlock()?;
+        info!("Priority lock released!");
+        Ok(())
+    }
+    pub fn can_lock() -> io::Result<bool> {
+        // Either taken by me or not taken by somebody else
+        let file = File::create(PRIORITY_LOCK_NAME)?;
+        let _test = file.try_lock_exclusive()?;
+        drop(file);
+        Ok(true)
+    }
 
-    file.lock_exclusive()?;
-    *is_me = true;
+    // pub fn is_me() -> bool {
+    //     if self.1 {
+    //         true
+    //     } else {
+    //         false
+    //     }
+    // }
 
-    info!("GPU PRIORITY lock file acquired");
-    Ok(LockedFile(file))
-}
-
-pub fn priority_unlock(lock: LockedFile) {
-    let mut is_me = IS_ME.lock().unwrap();
-    drop(lock);
-    *is_me = false;
-    info!("GPU PRIORITY lock file released");
-}
-
-pub fn priority_can_lock() -> io::Result<bool> {
-    // Either taken by me or not taken by somebody else
-    Ok(*IS_ME.lock().unwrap()
-        || File::create(PRIORITY_LOCK_NAME)?
-            .try_lock_exclusive()
-            .is_ok())
+    // pub fn set_is_me(&mut self) {
+    //     self.1 = true;
+    // }
 }
