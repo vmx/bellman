@@ -141,10 +141,8 @@ pub fn gpu_is_available() -> Result<bool, io::Error> {
 
 const PRIORITY_LOCK_NAME: &str = "/tmp/bellman.priority.lock";
 
-use std::sync::Mutex;
-lazy_static::lazy_static! {
-    static ref IS_ME : Mutex<bool> = Mutex::new(false);
-}
+use std::cell::RefCell;
+thread_local!(static IS_ME: RefCell<bool> = RefCell::new(false));
 
 #[derive(Debug)]
 pub struct PriorityLock(File);
@@ -154,37 +152,24 @@ impl PriorityLock {
         Ok(PriorityLock(file))
     }
     pub fn lock(&mut self) -> io::Result<()> {
-        let mut is_me = IS_ME.lock().unwrap();
-        *is_me = true;
+        IS_ME.with(|f| *f.borrow_mut() = true);
         info!("Acquiring priority lock...");
         self.0.lock_exclusive()?;
         info!("Priority lock acquired!");
         Ok(())
     }
     pub fn unlock(&mut self) -> io::Result<()> {
-        let mut is_me = IS_ME.lock().unwrap();
-        *is_me = false;
+        IS_ME.with(|f| *f.borrow_mut() = false);
         self.0.unlock()?;
         info!("Priority lock released!");
         Ok(())
     }
     pub fn can_lock() -> io::Result<bool> {
         // Either taken by me or not taken by somebody else
-        let file = File::create(PRIORITY_LOCK_NAME)?;
-        let _test = file.try_lock_exclusive()?;
-        drop(file);
-        Ok(true)
+        let is_me = IS_ME.with(|f| *f.borrow());
+        Ok(is_me
+            || File::create(PRIORITY_LOCK_NAME)?
+                .try_lock_exclusive()
+                .is_ok())
     }
-
-    // pub fn is_me() -> bool {
-    //     if self.1 {
-    //         true
-    //     } else {
-    //         false
-    //     }
-    // }
-
-    // pub fn set_is_me(&mut self) {
-    //     self.1 = true;
-    // }
 }
