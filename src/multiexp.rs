@@ -7,6 +7,9 @@ use std::io;
 use std::iter;
 use std::sync::{Arc, Mutex};
 
+use std::thread;
+use std::time::{Duration, Instant};
+
 use super::multicore::Worker;
 use super::SynthesisError;
 use crate::gpu;
@@ -453,8 +456,9 @@ where
         // };
         let kern = gpu_multiexp_supported::<E>().ok();
         if kern.is_some() {
+            thread::sleep(Duration::from_millis(1100));
             info!("GPU Multiexp is supported!");
-            if gpu::gpu_is_available().unwrap_or(false) {
+            if gpu::GPULock::gpu_is_available().unwrap_or(false) {
                 lock.lock().unwrap();
             }
         } else {
@@ -468,9 +472,9 @@ where
     }
     pub fn get(&mut self) -> &mut Option<gpu::MultiexpKernel<E>> {
         if !gpu::PriorityLock::can_lock().unwrap_or(false) {
-            warn!("Multiexp GPU acquired by some other process! Freeing up kernels...");
+            warn!("Multiexp GPU acquired by some other process! Freeing up kernel...");
             self.kernel = None; // This would drop kernel and free up the GPU
-            if !gpu::gpu_is_available().unwrap_or(false) {
+            if !gpu::GPULock::gpu_is_available().unwrap_or(false) {
                 self.lock.unlock().unwrap();
             }
         } else if self.supported && self.kernel.is_none() {
@@ -483,15 +487,6 @@ where
         &mut self.kernel
     }
 }
-
-// impl<'a, E> Drop for LockedMultiexpKernel<'a, E>
-// where
-//     E: paired::Engine,
-// {
-//     fn drop(&mut self) {
-//         self.lock.unlock().unwrap();
-//     }
-// }
 
 #[cfg(feature = "gpu-test")]
 #[test]

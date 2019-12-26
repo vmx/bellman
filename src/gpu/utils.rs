@@ -87,7 +87,6 @@ pub fn get_memory(d: Device) -> GPUResult<u64> {
 
 pub const LOCK_NAME: &str = "/tmp/bellman.lock";
 pub const ACQUIRE_NAME: &str = "/tmp/acquire_bellman.lock";
-pub const LOCK_NULL: &str = "/tmp/null.lock";
 
 #[derive(Debug)]
 pub struct LockedFile(File);
@@ -130,13 +129,12 @@ impl GPULock {
         info!("GPU lock released!");
         Ok(())
     }
-}
-
-pub fn gpu_is_available() -> Result<bool, io::Error> {
-    let file = File::create(GPU_LOCK_NAME)?;
-    let _test = file.try_lock_exclusive()?;
-    drop(file);
-    Ok(true)
+    pub fn gpu_is_available() -> Result<bool, io::Error> {
+        let file = File::create(GPU_LOCK_NAME)?;
+        let _test = file.try_lock_exclusive()?;
+        drop(file);
+        Ok(true)
+    }
 }
 
 const PRIORITY_LOCK_NAME: &str = "/tmp/bellman.priority.lock";

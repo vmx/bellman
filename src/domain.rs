@@ -657,7 +657,7 @@ where
         // };
         if kern.is_some() {
             info!("GPU FFT is supported!");
-            if gpu::gpu_is_available().unwrap_or(false) {
+            if gpu::GPULock::gpu_is_available().unwrap_or(false) {
                 lock.lock().unwrap();
             }
         } else {
@@ -672,9 +672,9 @@ where
     }
     pub fn get(&mut self) -> &mut Option<gpu::FFTKernel<E>> {
         if !gpu::PriorityLock::can_lock().unwrap_or(false) {
-            warn!("FFT GPU acquired by some other process! Freeing up kernels...");
+            warn!("FFT GPU acquired by some other process! Freeing up kernel...");
             self.kernel = None; // This would drop kernel and free up the GPU
-            if !gpu::gpu_is_available().unwrap_or(false) {
+            if !gpu::GPULock::gpu_is_available().unwrap_or(false) {
                 self.lock.unlock().unwrap();
             }
         } else if self.supported && self.kernel.is_none() {
@@ -687,15 +687,6 @@ where
         &mut self.kernel
     }
 }
-
-// impl<'a, E> Drop for LockedFFTKernel<'a, E>
-// where
-//     E: paired::Engine,
-// {
-//     fn drop(&mut self) {
-//         self.lock.unlock().unwrap();
-//     }
-// }
 
 #[cfg(feature = "gpu-test")]
 #[test]

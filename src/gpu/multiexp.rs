@@ -183,15 +183,6 @@ where
     where
         G: CurveAffine,
     {
-        // if !utils::gpu_is_not_acquired().unwrap_or(false) {
-        //     info!("GPU multiexp is forcefully taken by another process! Using CPU");
-        //     //utils::unlock()?;
-        //     return Err(GPUError {
-        //         msg: "GPU is forcefully taken by another process!".to_string(),
-        //     });
-        // }
-        // info!("GPU multiexp NOT forcefully taken by another process! Using GPU");
-
         let exp_bits = std::mem::size_of::<E::Fr>() * 8;
         let window_size = calc_window_size(n as usize, exp_bits, self.core_count);
         let num_windows = ((exp_bits as f64) / (window_size as f64)).ceil() as usize;

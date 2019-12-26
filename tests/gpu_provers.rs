@@ -111,7 +111,7 @@ pub fn test_parallel_prover() {
     let s2 = Fr::random(rng);
 
     // test function to see if GPU is available
-    let res = match gpu::gpu_is_available() {
+    let res = match gpu::GPULock::gpu_is_available() {
         Ok(n) => n,
         Err(err) => false,
     };
@@ -135,7 +135,7 @@ pub fn test_parallel_prover() {
     info!("Creating proof from HIGHER priority process...");
     let mut prio_lock = gpu::PriorityLock::new().unwrap();
 
-    let check = match gpu::gpu_is_available() {
+    let check = match gpu::GPULock::gpu_is_available() {
         Ok(n) => n,
         Err(err) => false,
     };
@@ -147,7 +147,7 @@ pub fn test_parallel_prover() {
         // We need to drop the acquire lock as soon as the lower prio
         // process has freed the main lock so that the higher uses GPU
         loop {
-            if gpu::gpu_is_available().unwrap_or(false) {
+            if gpu::GPULock::gpu_is_available().unwrap_or(false) {
                 info!("GPU free from lower prio process.");
                 break;
             };
