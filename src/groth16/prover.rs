@@ -9,11 +9,11 @@ use log::{info, warn};
 use paired::Engine;
 
 use super::{ParameterSource, Proof};
-use crate::domain::{gpu_fft_supported, EvaluationDomain, Scalar};
+use crate::domain::{create_fft_kernel, EvaluationDomain, Scalar};
 #[cfg(feature = "gpu")]
 use crate::gpu;
 use crate::multicore::Worker;
-use crate::multiexp::{gpu_multiexp_supported, multiexp, DensityTracker, FullDensity};
+use crate::multiexp::{create_multiexp_kernel, multiexp, DensityTracker, FullDensity};
 use crate::{Circuit, ConstraintSystem, Index, LinearCombination, SynthesisError, Variable};
 
 fn eval<E: Engine>(
@@ -216,7 +216,7 @@ where
     }
 
     let a = {
-        let mut fft_kern = match gpu_fft_supported(log_d) {
+        let mut fft_kern = match create_fft_kernel(log_d) {
             Ok(k) => {
                 info!("GPU FFT is supported!");
                 Some(k)
@@ -251,7 +251,7 @@ where
         Arc::new(a.into_iter().map(|s| s.0.into_repr()).collect::<Vec<_>>())
     };
 
-    let mut multiexp_kern = match gpu_multiexp_supported() {
+    let mut multiexp_kern = match create_multiexp_kernel() {
         Ok(k) => {
             info!("GPU Multiexp is supported!");
             Some(k)
