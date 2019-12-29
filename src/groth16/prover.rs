@@ -5,7 +5,6 @@ use std::sync::Arc;
 use ff::{Field, PrimeField};
 use futures::Future;
 use groupy::{CurveAffine, CurveProjective};
-use log::{info, warn};
 use paired::Engine;
 
 use super::{ParameterSource, Proof};
@@ -216,16 +215,7 @@ where
     }
 
     let a = {
-        let mut fft_kern = match create_fft_kernel(log_d) {
-            Ok(k) => {
-                info!("GPU FFT is supported!");
-                Some(k)
-            }
-            Err(e) => {
-                warn!("GPU FFT not supported: error: {}", e);
-                None
-            }
-        };
+        let mut fft_kern = create_fft_kernel(log_d);
 
         let mut a = EvaluationDomain::from_coeffs(prover.a)?;
         let mut b = EvaluationDomain::from_coeffs(prover.b)?;
@@ -251,16 +241,7 @@ where
         Arc::new(a.into_iter().map(|s| s.0.into_repr()).collect::<Vec<_>>())
     };
 
-    let mut multiexp_kern = match create_multiexp_kernel() {
-        Ok(k) => {
-            info!("GPU Multiexp is supported!");
-            Some(k)
-        }
-        Err(e) => {
-            warn!("GPU multiexp not supported: error: {}", e);
-            None
-        }
-    };
+    let mut multiexp_kern = create_multiexp_kernel();
 
     let h = multiexp(
         &worker,

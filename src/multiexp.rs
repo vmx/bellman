@@ -350,11 +350,21 @@ fn test_with_bls12() {
     assert_eq!(naive, fast);
 }
 
-pub fn create_multiexp_kernel<E>() -> Result<gpu::MultiexpKernel<E>, SynthesisError>
+pub fn create_multiexp_kernel<E>() -> Option<gpu::MultiexpKernel<E>>
 where
     E: paired::Engine,
 {
-    Ok(gpu::MultiexpKernel::<E>::create()?)
+    use log::{info, warn};
+    match gpu::MultiexpKernel::<E>::create() {
+        Ok(k) => {
+            info!("GPU Multiexp kernel instantiated!");
+            Some(k)
+        }
+        Err(e) => {
+            warn!("Cannot instantiate GPU Multiexp kernel! Error: {}", e);
+            None
+        }
+    }
 }
 
 #[cfg(feature = "gpu-test")]

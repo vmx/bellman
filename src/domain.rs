@@ -576,11 +576,21 @@ fn parallel_fft_consistency() {
     test_consistency::<Bls12, _>(rng);
 }
 
-pub fn create_fft_kernel<E>(log_d: u32) -> gpu::GPUResult<gpu::FFTKernel<E>>
+pub fn create_fft_kernel<E>(log_d: u32) -> Option<gpu::FFTKernel<E>>
 where
     E: Engine,
 {
-    Ok(gpu::FFTKernel::create(1 << log_d)?)
+    use log::{info, warn};
+    match gpu::FFTKernel::create(1 << log_d) {
+        Ok(k) => {
+            info!("GPU FFT kernel instantiated!");
+            Some(k)
+        }
+        Err(e) => {
+            warn!("Cannot instantiate GPU FFT kernel! Error: {}", e);
+            None
+        }
+    }
 }
 
 #[cfg(feature = "gpu-test")]
