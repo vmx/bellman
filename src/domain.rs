@@ -21,6 +21,7 @@ use super::multicore::Worker;
 use super::SynthesisError;
 
 use crate::gpu;
+use crate::gpu::locks::{GPULock, PriorityLock};
 
 pub struct EvaluationDomain<E: ScalarEngine, G: Group<E>> {
     coeffs: Vec<G>,
@@ -633,7 +634,7 @@ where
     supported: bool,
     log_d: u32,
     kernel: Option<gpu::FFTKernel<E>>,
-    lock: &'a mut gpu::GPULock,
+    lock: &'a mut GPULock,
 }
 
 use log::{info, warn};
@@ -641,7 +642,7 @@ impl<'a, E> LockedFFTKernel<'a, E>
 where
     E: paired::Engine,
 {
-    pub fn new(lock: &'a mut gpu::GPULock, log_d: u32) -> LockedFFTKernel<'a, E> {
+    pub fn new(lock: &'a mut GPULock, log_d: u32) -> LockedFFTKernel<'a, E> {
         let kern = gpu_fft_supported::<E>(log_d).ok();
         // TODO: Better logging
 
@@ -657,7 +658,7 @@ where
         // };
         if kern.is_some() {
             info!("GPU FFT is supported!");
-            if gpu::GPULock::gpu_is_available().unwrap_or(false) {
+            if GPULock::gpu_is_available().unwrap_or(false) {
                 lock.lock().unwrap();
             }
         } else {
@@ -671,10 +672,10 @@ where
         }
     }
     pub fn get(&mut self) -> &mut Option<gpu::FFTKernel<E>> {
-        if !gpu::PriorityLock::can_lock().unwrap_or(false) {
+        if !PriorityLock::can_lock().unwrap_or(false) {
             warn!("FFT GPU acquired by some other process! Freeing up kernel...");
             self.kernel = None; // This would drop kernel and free up the GPU
-            if !gpu::GPULock::gpu_is_available().unwrap_or(false) {
+            if !GPULock::gpu_is_available().unwrap_or(false) {
                 self.lock.unlock().unwrap();
             }
         } else if self.supported && self.kernel.is_none() {

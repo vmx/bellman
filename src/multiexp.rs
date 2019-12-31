@@ -8,11 +8,12 @@ use std::iter;
 use std::sync::{Arc, Mutex};
 
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use super::multicore::Worker;
 use super::SynthesisError;
 use crate::gpu;
+use crate::gpu::locks::{GPULock, PriorityLock};
 
 /// An object that builds a source of bases.
 pub trait SourceBuilder<G: CurveAffine>: Send + Sync + 'static + Clone {
@@ -432,7 +433,7 @@ where
 {
     supported: bool,
     kernel: Option<gpu::MultiexpKernel<E>>,
-    lock: &'a mut gpu::GPULock,
+    lock: &'a mut GPULock,
 }
 
 use log::{info, warn};
@@ -440,7 +441,7 @@ impl<'a, E> LockedMultiexpKernel<'a, E>
 where
     E: paired::Engine,
 {
-    pub fn new(lock: &'a mut gpu::GPULock) -> LockedMultiexpKernel<'a, E> {
+    pub fn new(lock: &'a mut GPULock) -> LockedMultiexpKernel<'a, E> {
         // TODO: reintroduce better error logs...
         // Currently we can't tell if multiexp failed or a prio lock was acquired
 
@@ -458,7 +459,7 @@ where
         if kern.is_some() {
             thread::sleep(Duration::from_millis(1100));
             info!("GPU Multiexp is supported!");
-            if gpu::GPULock::gpu_is_available().unwrap_or(false) {
+            if GPULock::gpu_is_available().unwrap_or(false) {
                 lock.lock().unwrap();
             }
         } else {
@@ -471,10 +472,10 @@ where
         }
     }
     pub fn get(&mut self) -> &mut Option<gpu::MultiexpKernel<E>> {
-        if !gpu::PriorityLock::can_lock().unwrap_or(false) {
+        if !PriorityLock::can_lock().unwrap_or(false) {
             warn!("Multiexp GPU acquired by some other process! Freeing up kernel...");
             self.kernel = None; // This would drop kernel and free up the GPU
-            if !gpu::GPULock::gpu_is_available().unwrap_or(false) {
+            if !GPULock::gpu_is_available().unwrap_or(false) {
                 self.lock.unlock().unwrap();
             }
         } else if self.supported && self.kernel.is_none() {

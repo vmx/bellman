@@ -6,6 +6,7 @@ extern crate log;
 extern crate paired;
 extern crate rand;
 use bellperson::gpu;
+use bellperson::gpu::locks::{GPULock, PriorityLock};
 use bellperson::groth16::Parameters;
 use bellperson::{Circuit, ConstraintSystem, SynthesisError};
 use log::info;
@@ -111,7 +112,7 @@ pub fn test_parallel_prover() {
     let s2 = Fr::random(rng);
 
     // test function to see if GPU is available
-    let res = match gpu::GPULock::gpu_is_available() {
+    let res = match GPULock::gpu_is_available() {
         Ok(n) => n,
         Err(err) => false,
     };
@@ -133,9 +134,9 @@ pub fn test_parallel_prover() {
     // Have higher prio proof wait long enough to interupt lower
     thread::sleep(Duration::from_millis(3100));
     info!("Creating proof from HIGHER priority process...");
-    let mut prio_lock = gpu::PriorityLock::new().unwrap();
+    let mut prio_lock = PriorityLock::new().unwrap();
 
-    let check = match gpu::GPULock::gpu_is_available() {
+    let check = match GPULock::gpu_is_available() {
         Ok(n) => n,
         Err(err) => false,
     };
@@ -147,7 +148,7 @@ pub fn test_parallel_prover() {
         // We need to drop the acquire lock as soon as the lower prio
         // process has freed the main lock so that the higher uses GPU
         loop {
-            if gpu::GPULock::gpu_is_available().unwrap_or(false) {
+            if GPULock::gpu_is_available().unwrap_or(false) {
                 info!("GPU free from lower prio process.");
                 break;
             };
