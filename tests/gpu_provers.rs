@@ -111,7 +111,7 @@ pub fn test_parallel_prover() {
     let r2 = Fr::random(rng);
     let s2 = Fr::random(rng);
 
-    thread::spawn(move || {
+    let lower_thread = thread::spawn(move || {
         info!("Creating proof from LOWER priority process...");
         // Create an instance of circuit
         let proof_lower = create_proof(c2, &params2, r2, s2).unwrap();
@@ -135,6 +135,6 @@ pub fn test_parallel_prover() {
         "Proof Higher is verified: {}",
         verify_proof(&pvk, &proof_higher, &[]).unwrap()
     );
-    // Let lower prior proof finish
-    thread::sleep(Duration::from_millis(4100));
+
+    lower_thread.join().unwrap();
 }
