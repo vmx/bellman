@@ -623,11 +623,13 @@ where
                 self.lock.unlock();
             }
         } else if self.kernel.is_none() {
-            warn!("FFT GPU can be used by this process...");
-            self.lock.lock();
-            self.kernel = create_fft_kernel::<E>(self.log_d);
-            if self.kernel.is_none() {
-                self.lock.unlock();
+            if GPULock::gpu_is_available() { // Is this really needed?
+                warn!("FFT GPU can be used by this process...");
+                self.lock.lock();
+                self.kernel = create_fft_kernel::<E>(self.log_d);
+                if self.kernel.is_none() {
+                    self.lock.unlock();
+                }
             }
         }
         &mut self.kernel

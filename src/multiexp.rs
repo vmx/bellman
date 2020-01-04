@@ -408,11 +408,13 @@ where
                 self.lock.unlock();
             }
         } else if self.kernel.is_none() {
-            warn!("GPU is free again! Trying to reacquire GPU...");
-            self.lock.lock();
-            self.kernel = create_multiexp_kernel::<E>();
-            if self.kernel.is_none() {
-                self.lock.unlock();
+            if GPULock::gpu_is_available() { // Is this really needed?
+                warn!("GPU is free again! Trying to reacquire GPU...");
+                self.lock.lock();
+                self.kernel = create_multiexp_kernel::<E>();
+                if self.kernel.is_none() {
+                    self.lock.unlock();
+                }
             }
         }
         &mut self.kernel
