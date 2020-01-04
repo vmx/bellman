@@ -2,6 +2,7 @@ use super::error::{GPUError, GPUResult};
 use super::sources;
 use super::structs;
 use super::utils;
+use super::locks;
 use super::GPU_NVIDIA_DEVICES;
 use crate::multicore::Worker;
 use crate::multiexp::{multiexp as cpu_multiexp, FullDensity};
@@ -183,6 +184,12 @@ where
     where
         G: CurveAffine,
     {
+        if !locks::PriorityLock::can_lock() {
+            return Err(GPUError {
+                msg: "GPU is taken by a high priority process!".to_string(),
+            });
+        }
+
         let exp_bits = std::mem::size_of::<E::Fr>() * 8;
         let window_size = calc_window_size(n as usize, exp_bits, self.core_count);
         let num_windows = ((exp_bits as f64) / (window_size as f64)).ceil() as usize;
