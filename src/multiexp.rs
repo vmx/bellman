@@ -5,7 +5,7 @@ use groupy::{CurveAffine, CurveProjective};
 use log::error;
 use std::io;
 use std::iter;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use std::thread;
 use std::time::Duration;
@@ -354,76 +354,20 @@ fn test_with_bls12() {
     assert_eq!(naive, fast);
 }
 
-lazy_static::lazy_static! {
-    static ref GPU_MULTIEXP_SUPPORTED: Mutex<Option<bool>> = { Mutex::new(None) };
-}
-
-use std::env;
-pub fn gpu_multiexp_supported<E>() -> Result<gpu::MultiexpKernel<E>, SynthesisError>
+pub fn create_multiexp_kernel<E>() -> Option<gpu::MultiexpKernel<E>>
 where
     E: paired::Engine,
 {
-    const TEST_SIZE: u32 = 1024;
-    let pool = Worker::new();
-    let rng = &mut rand::thread_rng();
-    let mut kern = Some(gpu::MultiexpKernel::<E>::create()?);
-
-    // Checking the correctness of GPU results can be time consuming. User can disable this
-    // feature using BELLMAN_GPU_NO_CHECK flag.
-    if env::var("BELLMAN_GPU_NO_CHECK").is_ok() {
-        return Ok(kern.unwrap());
-    }
-
-    let res = {
-        let mut supported = GPU_MULTIEXP_SUPPORTED.lock().unwrap();
-        if let Some(res) = *supported {
-            res
-        } else {
-            let bases_g1 = Arc::new(
-                (0..TEST_SIZE)
-                    .map(|_| E::G1::random(rng).into_affine())
-                    .collect::<Vec<_>>(),
-            );
-            let bases_g2 = Arc::new(
-                (0..TEST_SIZE)
-                    .map(|_| E::G2::random(rng).into_affine())
-                    .collect::<Vec<_>>(),
-            );
-            let exps = Arc::new(
-                (0..TEST_SIZE)
-                    .map(|_| E::Fr::random(rng).into_repr())
-                    .collect::<Vec<_>>(),
-            );
-            let gpu_g1 = multiexp(
-                &pool,
-                (bases_g1.clone(), 0),
-                FullDensity,
-                exps.clone(),
-                &mut kern,
-            )
-            .wait()?;
-            let cpu_g1 =
-                multiexp(&pool, (bases_g1, 0), FullDensity, exps.clone(), &mut None).wait()?;
-            let gpu_g2 = multiexp(
-                &pool,
-                (bases_g2.clone(), 0),
-                FullDensity,
-                exps.clone(),
-                &mut kern,
-            )
-            .wait()?;
-            let cpu_g2 = multiexp(&pool, (bases_g2, 0), FullDensity, exps, &mut None).wait()?;
-            let res = cpu_g1 == gpu_g1 && cpu_g2 == gpu_g2;
-            *supported = Some(res);
-            res
+    use log::{info, warn};
+    match gpu::MultiexpKernel::<E>::create() {
+        Ok(k) => {
+            info!("GPU Multiexp kernel instantiated!");
+            Some(k)
         }
-    };
-    if res {
-        Ok(kern.unwrap())
-    } else {
-        Err(SynthesisError::from(gpu::GPUError {
-            msg: "GPU Multiexp not supported!".to_string(),
-        }))
+        Err(e) => {
+            warn!("Cannot instantiate GPU Multiexp kernel! Error: {}", e);
+            None
+        }
     }
 }
 
@@ -442,20 +386,7 @@ where
     E: paired::Engine,
 {
     pub fn new(lock: &'a mut GPULock) -> LockedMultiexpKernel<'a, E> {
-        // TODO: reintroduce better error logs...
-        // Currently we can't tell if multiexp failed or a prio lock was acquired
-
-        // let mut multiexp_kern = match gpu_multiexp_supported() {
-        //     Ok(k) => {
-        //         info!("GPU Multiexp is supported!");
-        //         Some(k)
-        //     }
-        //     Err(e) => {
-        //         warn!("GPU multiexp not supported: error: {}", e);
-        //         None
-        //     }
-        // };
-        let kern = gpu_multiexp_supported::<E>().ok();
+        let kern = create_multiexp_kernel::<E>();
         if kern.is_some() {
             thread::sleep(Duration::from_millis(1100));
             info!("GPU Multiexp is supported!");
@@ -480,7 +411,7 @@ where
             }
         } else if self.supported && self.kernel.is_none() {
             warn!("GPU is free again! Trying to reacquire GPU...");
-            self.kernel = gpu_multiexp_supported::<E>().ok();
+            self.kernel = create_multiexp_kernel::<E>();
             if self.kernel.is_some() {
                 self.lock.lock();
             }
