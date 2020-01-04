@@ -624,9 +624,10 @@ where
             }
         } else if self.kernel.is_none() {
             warn!("FFT GPU can be used by this process...");
+            self.lock.lock();
             self.kernel = create_fft_kernel::<E>(self.log_d);
-            if self.kernel.is_some() {
-                self.lock.lock();
+            if self.kernel.is_none() {
+                self.lock.unlock();
             }
         }
         &mut self.kernel

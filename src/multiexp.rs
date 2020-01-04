@@ -399,8 +399,9 @@ where
             }
         } else if self.kernel.is_none() {
             warn!("GPU is free again! Trying to reacquire GPU...");
+            self.lock.lock();
             self.kernel = create_multiexp_kernel::<E>();
-            if self.kernel.is_some() {
+            if self.kernel.is_none() {
                 self.lock.lock();
             }
         }
