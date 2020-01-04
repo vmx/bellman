@@ -402,7 +402,7 @@ where
             self.lock.lock();
             self.kernel = create_multiexp_kernel::<E>();
             if self.kernel.is_none() {
-                self.lock.lock();
+                self.lock.unlock();
             }
         }
         &mut self.kernel
