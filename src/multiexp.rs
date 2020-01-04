@@ -307,7 +307,17 @@ where
         assert!(query_size == exponents.len());
     }
 
-    multiexp_inner(pool, bases, density_map, exponents, 0, c, true)
+    let future = multiexp_inner(pool, bases, density_map, exponents, 0, c, true);
+    #[cfg(feature = "gpu")]
+    {
+        // Do not give the control back to the caller till the
+        // multiexp is done. We may want to reacquire the GPU again
+        // between the multiexps.
+        let result = future.wait();
+        Box::new(pool.compute(move || result))
+    }
+    #[cfg(not(feature = "gpu"))]
+    future
 }
 
 #[cfg(feature = "pairing")]
