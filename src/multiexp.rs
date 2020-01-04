@@ -395,9 +395,7 @@ where
             if self.kernel.is_some() {
                 warn!("Multiexp GPU acquired by some other process! Freeing up kernel...");
                 self.kernel = None; // This would drop kernel and free up the GPU
-                if !GPULock::gpu_is_available() {
-                    self.lock.unlock();
-                }
+                self.lock.unlock();
             }
         } else if self.kernel.is_none() {
             warn!("GPU is free again! Trying to reacquire GPU...");

@@ -620,9 +620,7 @@ where
             if self.kernel.is_some() {
                 warn!("FFT GPU acquired by some other process! Freeing up kernel...");
                 self.kernel = None; // This would drop kernel and free up the GPU
-                if !GPULock::gpu_is_available() {
-                    self.lock.unlock();
-                }
+                self.lock.unlock();
             }
         } else if self.kernel.is_none() {
             warn!("FFT GPU can be used by this process...");
