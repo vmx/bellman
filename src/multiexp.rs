@@ -287,10 +287,13 @@ where
         }
 
         let (bss, skip) = bases.clone().get();
-        if let Ok(p) = k.multiexp(pool, bss, Arc::new(exps.clone()), skip, n) {
-            return Box::new(pool.compute(move || Ok(p)));
-        } else {
-            error!("GPU Multiexp failed! Falling back to CPU...");
+        match k.multiexp(pool, bss, Arc::new(exps.clone()), skip, n) {
+            Ok(p) => {
+                return Box::new(pool.compute(move || Ok(p)));
+            }
+            Err(e) => {
+                warn!("GPU Multiexp failed! Falling back to CPU... Error: {}", e);
+            }
         }
     }
 
