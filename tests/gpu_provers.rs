@@ -111,13 +111,6 @@ pub fn test_parallel_prover() {
     let r2 = Fr::random(rng);
     let s2 = Fr::random(rng);
 
-    // test function to see if GPU is available
-    let res = GPULock::gpu_is_available();
-
-    if res == true {
-        info!("GPU is available!...");
-    }
-
     thread::spawn(move || {
         info!("Creating proof from LOWER priority process...");
         // Create an instance of circuit
@@ -132,24 +125,7 @@ pub fn test_parallel_prover() {
     thread::sleep(Duration::from_millis(3100));
     info!("Creating proof from HIGHER priority process...");
     let mut prio_lock = PriorityLock::new();
-
-    let check = GPULock::gpu_is_available();
-
-    if check != true {
-        info!("GPU is NOT Available! Attempting to acuire the GPU...");
-        prio_lock.lock();
-
-        // We need to drop the acquire lock as soon as the lower prio
-        // process has freed the main lock so that the higher uses GPU
-        loop {
-            if GPULock::gpu_is_available() {
-                info!("GPU free from lower prio process.");
-                break;
-            };
-            continue;
-        }
-    };
-
+    prio_lock.lock();
     let proof_higher = create_proof(c, &params, r1, s1).unwrap();
     info!("Higher Process proof finished, releasing priority lock...");
     prio_lock.unlock();
