@@ -181,7 +181,7 @@ where
     E: Engine,
     C: Circuit<E>,
 {
-    let mut lock = GPULock::new()?;
+    let mut lock = GPULock::new();
 
     let mut prover = ProvingAssignment {
         a_aux_density: DensityTracker::new(),

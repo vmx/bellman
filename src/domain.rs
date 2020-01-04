@@ -658,8 +658,8 @@ where
         // };
         if kern.is_some() {
             info!("GPU FFT is supported!");
-            if GPULock::gpu_is_available().unwrap_or(false) {
-                lock.lock().unwrap();
+            if GPULock::gpu_is_available() {
+                lock.lock();
             }
         } else {
             warn!("GPU FFT is NOT supported!");
@@ -672,17 +672,17 @@ where
         }
     }
     pub fn get(&mut self) -> &mut Option<gpu::FFTKernel<E>> {
-        if !PriorityLock::can_lock().unwrap_or(false) {
+        if !PriorityLock::can_lock() {
             warn!("FFT GPU acquired by some other process! Freeing up kernel...");
             self.kernel = None; // This would drop kernel and free up the GPU
-            if !GPULock::gpu_is_available().unwrap_or(false) {
-                self.lock.unlock().unwrap();
+            if !GPULock::gpu_is_available() {
+                self.lock.unlock();
             }
         } else if self.supported && self.kernel.is_none() {
             warn!("FFT GPU can be used by this process...");
             self.kernel = gpu_fft_supported::<E>(self.log_d).ok();
             if self.kernel.is_some() {
-                self.lock.lock().unwrap();
+                self.lock.lock();
             }
         }
         &mut self.kernel

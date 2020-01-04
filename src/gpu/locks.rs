@@ -8,26 +8,23 @@ const GPU_LOCK_NAME: &str = "/tmp/bellman.gpu.lock";
 #[derive(Debug)]
 pub struct GPULock(File);
 impl GPULock {
-    pub fn new() -> io::Result<GPULock> {
-        let file = File::create(GPU_LOCK_NAME)?;
-        Ok(GPULock(file))
+    pub fn new() -> GPULock {
+        GPULock(File::create(GPU_LOCK_NAME).unwrap())
     }
-    pub fn lock(&mut self) -> io::Result<()> {
+    pub fn lock(&mut self) {
         info!("Acquiring GPU lock...");
-        self.0.lock_exclusive()?;
+        self.0.lock_exclusive().unwrap();
         info!("GPU lock acquired!");
-        Ok(())
     }
-    pub fn unlock(&mut self) -> io::Result<()> {
-        self.0.unlock()?;
+    pub fn unlock(&mut self) {
+        self.0.unlock().unwrap();
         info!("GPU lock released!");
-        Ok(())
     }
-    pub fn gpu_is_available() -> Result<bool, io::Error> {
-        let file = File::create(GPU_LOCK_NAME)?;
-        let _test = file.try_lock_exclusive()?;
-        drop(file);
-        Ok(true)
+    pub fn gpu_is_available() -> bool {
+        File::create(GPU_LOCK_NAME)
+            .unwrap()
+            .try_lock_exclusive()
+            .is_ok()
     }
 }
 
@@ -39,29 +36,27 @@ thread_local!(static IS_ME: RefCell<bool> = RefCell::new(false));
 #[derive(Debug)]
 pub struct PriorityLock(File);
 impl PriorityLock {
-    pub fn new() -> io::Result<PriorityLock> {
-        let file = File::create(PRIORITY_LOCK_NAME)?;
-        Ok(PriorityLock(file))
+    pub fn new() -> PriorityLock {
+        PriorityLock(File::create(PRIORITY_LOCK_NAME).unwrap())
     }
-    pub fn lock(&mut self) -> io::Result<()> {
+    pub fn lock(&mut self) {
         IS_ME.with(|f| *f.borrow_mut() = true);
         info!("Acquiring priority lock...");
-        self.0.lock_exclusive()?;
+        self.0.lock_exclusive().unwrap();
         info!("Priority lock acquired!");
-        Ok(())
     }
-    pub fn unlock(&mut self) -> io::Result<()> {
+    pub fn unlock(&mut self) {
         IS_ME.with(|f| *f.borrow_mut() = false);
-        self.0.unlock()?;
+        self.0.unlock().unwrap();
         info!("Priority lock released!");
-        Ok(())
     }
-    pub fn can_lock() -> io::Result<bool> {
+    pub fn can_lock() -> bool {
         // Either taken by me or not taken by somebody else
         let is_me = IS_ME.with(|f| *f.borrow());
-        Ok(is_me
-            || File::create(PRIORITY_LOCK_NAME)?
+        is_me
+            || File::create(PRIORITY_LOCK_NAME)
+                .unwrap()
                 .try_lock_exclusive()
-                .is_ok())
+                .is_ok()
     }
 }

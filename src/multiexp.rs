@@ -459,8 +459,8 @@ where
         if kern.is_some() {
             thread::sleep(Duration::from_millis(1100));
             info!("GPU Multiexp is supported!");
-            if GPULock::gpu_is_available().unwrap_or(false) {
-                lock.lock().unwrap();
+            if GPULock::gpu_is_available() {
+                lock.lock();
             }
         } else {
             warn!("GPU Multiexp is NOT supported!");
@@ -472,17 +472,17 @@ where
         }
     }
     pub fn get(&mut self) -> &mut Option<gpu::MultiexpKernel<E>> {
-        if !PriorityLock::can_lock().unwrap_or(false) {
+        if !PriorityLock::can_lock() {
             warn!("Multiexp GPU acquired by some other process! Freeing up kernel...");
             self.kernel = None; // This would drop kernel and free up the GPU
-            if !GPULock::gpu_is_available().unwrap_or(false) {
-                self.lock.unlock().unwrap();
+            if !GPULock::gpu_is_available() {
+                self.lock.unlock();
             }
         } else if self.supported && self.kernel.is_none() {
             warn!("GPU is free again! Trying to reacquire GPU...");
             self.kernel = gpu_multiexp_supported::<E>().ok();
             if self.kernel.is_some() {
-                self.lock.lock().unwrap();
+                self.lock.lock();
             }
         }
         &mut self.kernel
