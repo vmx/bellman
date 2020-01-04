@@ -3,30 +3,6 @@ use log::info;
 use std::fs::File;
 use std::io;
 
-pub const LOCK_NAME: &str = "/tmp/bellman.lock";
-pub const ACQUIRE_NAME: &str = "/tmp/acquire_bellman.lock";
-
-#[derive(Debug)]
-pub struct LockedFile(File);
-
-pub fn get_lock_file() -> io::Result<LockedFile> {
-    info!("Creating GPU lock file");
-    let file = File::create(LOCK_NAME)?;
-
-    file.lock_exclusive()?;
-
-    info!("GPU lock file acquired");
-    Ok(LockedFile(file))
-}
-
-pub fn unlock(lock: &LockedFile) -> io::Result<()> {
-    lock.0.unlock()?;
-    info!("GPU lock file released");
-    Ok(())
-}
-
-//-----
-
 const GPU_LOCK_NAME: &str = "/tmp/bellman.gpu.lock";
 
 #[derive(Debug)]
