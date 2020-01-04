@@ -35,6 +35,7 @@ use self::bellperson::groth16::{
 #[derive(Clone)]
 pub struct DummyDemo<E: Engine> {
     pub xx: Option<E::Fr>,
+    pub interations: u64,
 }
 
 impl<E: Engine> Circuit<E> for DummyDemo<E> {
@@ -42,7 +43,7 @@ impl<E: Engine> Circuit<E> for DummyDemo<E> {
         let mut x_val = E::Fr::from_str("2");
         let mut x = cs.alloc(|| "", || x_val.ok_or(SynthesisError::AssignmentMissing))?;
 
-        for k in 0..500_000 {
+        for k in 0..self.interations {
             // Allocate: x * x = x2
             let x2_val = x_val.map(|mut e| {
                 e.square();
@@ -85,25 +86,17 @@ pub fn test_parallel_prover() {
 
     println!("Creating parameters...");
 
-    let c = DummyDemo::<Bls12> { xx: None };
+    // Higher prio circuit
+    let c = DummyDemo::<Bls12> { xx: None, interations: 10_000 };
+    // Lower prio circuit
+    let c2 = DummyDemo::<Bls12> { xx: None, interations: 500_000 };
 
     let params = generate_random_parameters(c.clone(), rng).unwrap();
-    let params2 = generate_random_parameters(c.clone(), rng).unwrap();
+    let params2 = generate_random_parameters(c2.clone(), rng).unwrap();
 
     // Prepare the verification key (for proof verification)
     let pvk = prepare_verifying_key(&params.vk);
     let pvk2 = prepare_verifying_key(&params2.vk);
-
-    //let now = Instant::now();
-
-    // Create an instance of circuit
-    let c = DummyDemo::<Bls12> {
-        xx: Fr::from_str("3"),
-    };
-
-    let c2 = DummyDemo::<Bls12> {
-        xx: Fr::from_str("3"),
-    };
 
     // generate randomness
     let r1 = Fr::random(rng);
