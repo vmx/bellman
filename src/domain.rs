@@ -311,7 +311,10 @@ pub fn best_mul_by_field<E: Engine, T: Group<E>>(
                 return Ok(());
             }
             Err(e) => {
-                warn!("GPU Mul-by-field failed! Falling back to CPU... Error: {}", e);
+                warn!(
+                    "GPU Mul-by-field failed! Falling back to CPU... Error: {}",
+                    e
+                );
             }
         }
     }
@@ -631,7 +634,8 @@ where
                 self.lock.unlock();
             }
         } else if self.kernel.is_none() {
-            if GPULock::gpu_is_available() { // Is this really needed?
+            // Is this really needed?
+            if GPULock::gpu_is_available() {
                 warn!("FFT GPU can be used by this process...");
                 self.lock.lock();
                 self.kernel = create_fft_kernel::<E>(self.log_d);

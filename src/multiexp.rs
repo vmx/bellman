@@ -408,7 +408,8 @@ where
                 self.lock.unlock();
             }
         } else if self.kernel.is_none() {
-            if GPULock::gpu_is_available() { // Is this really needed?
+            // Is this really needed?
+            if GPULock::gpu_is_available() {
                 warn!("GPU is free again! Trying to reacquire GPU...");
                 self.lock.lock();
                 self.kernel = create_multiexp_kernel::<E>();
