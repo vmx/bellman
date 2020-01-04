@@ -598,7 +598,6 @@ pub struct LockedFFTKernel<'a, E>
 where
     E: paired::Engine,
 {
-    supported: bool,
     log_d: u32,
     kernel: Option<gpu::FFTKernel<E>>,
     lock: &'a mut GPULock,
@@ -610,19 +609,9 @@ where
     E: paired::Engine,
 {
     pub fn new(lock: &'a mut GPULock, log_d: u32) -> LockedFFTKernel<'a, E> {
-        let kern = create_fft_kernel::<E>(log_d);
-        if kern.is_some() {
-            info!("GPU FFT is supported!");
-            if GPULock::gpu_is_available() {
-                lock.lock();
-            }
-        } else {
-            warn!("GPU FFT is NOT supported!");
-        }
         LockedFFTKernel::<E> {
-            supported: kern.is_some(),
             log_d: log_d,
-            kernel: kern,
+            kernel: None,
             lock: lock,
         }
     }
@@ -633,7 +622,7 @@ where
             if !GPULock::gpu_is_available() {
                 self.lock.unlock();
             }
-        } else if self.supported && self.kernel.is_none() {
+        } else if self.kernel.is_none() {
             warn!("FFT GPU can be used by this process...");
             self.kernel = create_fft_kernel::<E>(self.log_d);
             if self.kernel.is_some() {

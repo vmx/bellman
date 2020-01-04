@@ -375,7 +375,6 @@ pub struct LockedMultiexpKernel<'a, E>
 where
     E: paired::Engine,
 {
-    supported: bool,
     kernel: Option<gpu::MultiexpKernel<E>>,
     lock: &'a mut GPULock,
 }
@@ -386,19 +385,8 @@ where
     E: paired::Engine,
 {
     pub fn new(lock: &'a mut GPULock) -> LockedMultiexpKernel<'a, E> {
-        let kern = create_multiexp_kernel::<E>();
-        if kern.is_some() {
-            thread::sleep(Duration::from_millis(1100));
-            info!("GPU Multiexp is supported!");
-            if GPULock::gpu_is_available() {
-                lock.lock();
-            }
-        } else {
-            warn!("GPU Multiexp is NOT supported!");
-        }
         LockedMultiexpKernel::<E> {
-            supported: kern.is_some(),
-            kernel: kern,
+            kernel: None,
             lock: lock,
         }
     }
@@ -409,7 +397,7 @@ where
             if !GPULock::gpu_is_available() {
                 self.lock.unlock();
             }
-        } else if self.supported && self.kernel.is_none() {
+        } else if self.kernel.is_none() {
             warn!("GPU is free again! Trying to reacquire GPU...");
             self.kernel = create_multiexp_kernel::<E>();
             if self.kernel.is_some() {
