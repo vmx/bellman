@@ -115,7 +115,7 @@ pub fn test_parallel_prover() {
     });
 
     // Have higher prio proof wait long enough to interupt lower
-    thread::sleep(Duration::from_millis(3100));
+    thread::sleep(Duration::from_millis(2000));
     info!("Creating proof from HIGHER priority process...");
     let mut prio_lock = PriorityLock::new();
     prio_lock.lock();
