@@ -605,25 +605,23 @@ where
     }
 }
 
-pub struct LockedFFTKernel<'a, E>
+pub struct LockedFFTKernel<E>
 where
     E: paired::Engine,
 {
     log_d: u32,
-    kernel: Option<gpu::FFTKernel<E>>,
-    lock: &'a mut GPULock,
+    kernel: Option<gpu::FFTKernel<E>>
 }
 
 use log::{info, warn};
-impl<'a, E> LockedFFTKernel<'a, E>
+impl<E> LockedFFTKernel<E>
 where
     E: paired::Engine,
 {
-    pub fn new(lock: &'a mut GPULock, log_d: u32) -> LockedFFTKernel<'a, E> {
+    pub fn new(log_d: u32) -> LockedFFTKernel<E> {
         LockedFFTKernel::<E> {
             log_d: log_d,
-            kernel: None,
-            lock: lock,
+            kernel: None
         }
     }
     pub fn get(&mut self) -> &mut Option<gpu::FFTKernel<E>> {
@@ -631,17 +629,12 @@ where
             if self.kernel.is_some() {
                 warn!("FFT GPU acquired by some other process! Freeing up kernel...");
                 self.kernel = None; // This would drop kernel and free up the GPU
-                self.lock.unlock();
             }
         } else if self.kernel.is_none() {
             // Is this really needed?
             if GPULock::gpu_is_available() {
                 warn!("FFT GPU can be used by this process...");
-                self.lock.lock();
                 self.kernel = create_fft_kernel::<E>(self.log_d);
-                if self.kernel.is_none() {
-                    self.lock.unlock();
-                }
             }
         }
         &mut self.kernel

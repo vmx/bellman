@@ -121,7 +121,7 @@ pub fn test_parallel_prover() {
     prio_lock.lock();
     let proof_higher = create_proof(c, &params, r1, s1).unwrap();
     info!("Higher Process proof finished, releasing priority lock...");
-    prio_lock.unlock();
+    drop(prio_lock);
 
     //println!("Total proof gen finished in {}s and {}ms", now.elapsed().as_secs(), now.elapsed().subsec_nanos()/1000000);
     info!(

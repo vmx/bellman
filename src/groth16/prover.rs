@@ -181,8 +181,6 @@ where
     E: Engine,
     C: Circuit<E>,
 {
-    let mut lock = GPULock::new();
-
     let mut prover = ProvingAssignment {
         a_aux_density: DensityTracker::new(),
         b_input_density: DensityTracker::new(),
@@ -213,7 +211,7 @@ where
     }
 
     let a = {
-        let mut fft_kern = LockedFFTKernel::new(&mut lock, log_d);
+        let mut fft_kern = LockedFFTKernel::new(log_d);
 
         let mut a = EvaluationDomain::from_coeffs(prover.a)?;
         let mut b = EvaluationDomain::from_coeffs(prover.b)?;
@@ -239,7 +237,7 @@ where
         Arc::new(a.into_iter().map(|s| s.0.into_repr()).collect::<Vec<_>>())
     };
 
-    let mut multiexp_kern = LockedMultiexpKernel::new(&mut lock);
+    let mut multiexp_kern = LockedMultiexpKernel::new();
 
     let h = multiexp(
         &worker,

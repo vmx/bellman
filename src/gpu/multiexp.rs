@@ -288,6 +288,7 @@ where
     E: Engine,
 {
     kernels: Vec<SingleMultiexpKernel<E>>,
+    lock: locks::GPULock,
 }
 
 impl<E> MultiexpKernel<E>
@@ -295,6 +296,9 @@ where
     E: Engine,
 {
     pub fn create() -> GPUResult<MultiexpKernel<E>> {
+        let mut lock = locks::GPULock::new();
+        lock.lock();
+
         let kernels: Vec<_> = GPU_NVIDIA_DEVICES
             .iter()
             .map(|d| SingleMultiexpKernel::<E>::create(*d))
@@ -319,7 +323,7 @@ where
                 k.n
             );
         }
-        return Ok(MultiexpKernel::<E> { kernels });
+        return Ok(MultiexpKernel::<E> { kernels, lock });
     }
 
     pub fn multiexp<G>(

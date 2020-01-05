@@ -16,15 +16,16 @@ impl GPULock {
         self.0.lock_exclusive().unwrap();
         info!("GPU lock acquired!");
     }
-    pub fn unlock(&mut self) {
-        self.0.unlock().unwrap();
-        info!("GPU lock released!");
-    }
     pub fn gpu_is_available() -> bool {
         File::create(GPU_LOCK_NAME)
             .unwrap()
             .try_lock_exclusive()
             .is_ok()
+    }
+}
+impl Drop for GPULock {
+    fn drop(&mut self) {
+        info!("GPU lock released!");
     }
 }
 
@@ -45,11 +46,6 @@ impl PriorityLock {
         self.0.lock_exclusive().unwrap();
         info!("Priority lock acquired!");
     }
-    pub fn unlock(&mut self) {
-        IS_ME.with(|f| *f.borrow_mut() = false);
-        self.0.unlock().unwrap();
-        info!("Priority lock released!");
-    }
     pub fn can_lock() -> bool {
         // Either taken by me or not taken by somebody else
         let is_me = IS_ME.with(|f| *f.borrow());
@@ -58,5 +54,11 @@ impl PriorityLock {
                 .unwrap()
                 .try_lock_exclusive()
                 .is_ok()
+    }
+}
+impl Drop for PriorityLock {
+    fn drop(&mut self) {
+        IS_ME.with(|f| *f.borrow_mut() = false);
+        info!("Priority lock released!");
     }
 }

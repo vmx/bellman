@@ -384,23 +384,21 @@ where
     }
 }
 
-pub struct LockedMultiexpKernel<'a, E>
+pub struct LockedMultiexpKernel<E>
 where
     E: paired::Engine,
 {
-    kernel: Option<gpu::MultiexpKernel<E>>,
-    lock: &'a mut GPULock,
+    kernel: Option<gpu::MultiexpKernel<E>>
 }
 
 use log::{info, warn};
-impl<'a, E> LockedMultiexpKernel<'a, E>
+impl<E> LockedMultiexpKernel<E>
 where
     E: paired::Engine,
 {
-    pub fn new(lock: &'a mut GPULock) -> LockedMultiexpKernel<'a, E> {
+    pub fn new() -> LockedMultiexpKernel<E> {
         LockedMultiexpKernel::<E> {
-            kernel: None,
-            lock: lock,
+            kernel: None
         }
     }
     pub fn get(&mut self) -> &mut Option<gpu::MultiexpKernel<E>> {
@@ -408,17 +406,12 @@ where
             if self.kernel.is_some() {
                 warn!("Multiexp GPU acquired by some other process! Freeing up kernel...");
                 self.kernel = None; // This would drop kernel and free up the GPU
-                self.lock.unlock();
             }
         } else if self.kernel.is_none() {
             // Is this really needed?
             if GPULock::gpu_is_available() {
                 warn!("GPU is free again! Trying to reacquire GPU...");
-                self.lock.lock();
                 self.kernel = create_multiexp_kernel::<E>();
-                if self.kernel.is_none() {
-                    self.lock.unlock();
-                }
             }
         }
         &mut self.kernel
