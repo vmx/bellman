@@ -87,9 +87,15 @@ pub fn test_parallel_prover() {
     println!("Creating parameters...");
 
     // Higher prio circuit
-    let c = DummyDemo::<Bls12> { xx: None, interations: 10_000 };
+    let c = DummyDemo::<Bls12> {
+        xx: None,
+        interations: 10_000,
+    };
     // Lower prio circuit
-    let c2 = DummyDemo::<Bls12> { xx: None, interations: 500_000 };
+    let c2 = DummyDemo::<Bls12> {
+        xx: None,
+        interations: 500_000,
+    };
 
     let params = generate_random_parameters(c.clone(), rng).unwrap();
     let params2 = generate_random_parameters(c2.clone(), rng).unwrap();

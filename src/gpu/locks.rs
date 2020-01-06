@@ -1,7 +1,6 @@
 use fs2::FileExt;
 use log::info;
 use std::fs::File;
-use std::io;
 
 const GPU_LOCK_NAME: &str = "/tmp/bellman.gpu.lock";
 

@@ -19,7 +19,7 @@ use super::multicore::Worker;
 use super::SynthesisError;
 
 use crate::gpu;
-use crate::gpu::locks::{GPULock, PriorityLock};
+use crate::gpu::locks::PriorityLock;
 
 pub struct EvaluationDomain<E: ScalarEngine, G: Group<E>> {
     coeffs: Vec<G>,
@@ -588,11 +588,11 @@ fn parallel_fft_consistency() {
     test_consistency::<Bls12, _>(rng);
 }
 
+use log::{info, warn};
 pub fn create_fft_kernel<E>(log_d: u32) -> Option<gpu::FFTKernel<E>>
 where
     E: Engine,
 {
-    use log::{info, warn};
     match gpu::FFTKernel::create(1 << log_d) {
         Ok(k) => {
             info!("GPU FFT kernel instantiated!");
@@ -610,10 +610,9 @@ where
     E: paired::Engine,
 {
     log_d: u32,
-    kernel: Option<gpu::FFTKernel<E>>
+    kernel: Option<gpu::FFTKernel<E>>,
 }
 
-use log::{info, warn};
 impl<E> LockedFFTKernel<E>
 where
     E: paired::Engine,
@@ -621,7 +620,7 @@ where
     pub fn new(log_d: u32) -> LockedFFTKernel<E> {
         LockedFFTKernel::<E> {
             log_d: log_d,
-            kernel: None
+            kernel: None,
         }
     }
     pub fn get(&mut self) -> &mut Option<gpu::FFTKernel<E>> {
@@ -633,8 +632,8 @@ where
         } else if self.kernel.is_none() {
             // Is this really needed?
             // if GPULock::gpu_is_available() {
-                warn!("FFT GPU can be used by this process...");
-                self.kernel = create_fft_kernel::<E>(self.log_d);
+            warn!("FFT GPU can be used by this process...");
+            self.kernel = create_fft_kernel::<E>(self.log_d);
             // }
         }
         &mut self.kernel

@@ -2,18 +2,14 @@ use bit_vec::{self, BitVec};
 use ff::{Field, PrimeField, PrimeFieldRepr, ScalarEngine};
 use futures::Future;
 use groupy::{CurveAffine, CurveProjective};
-use log::error;
 use std::io;
 use std::iter;
 use std::sync::Arc;
 
-use std::thread;
-use std::time::Duration;
-
 use super::multicore::Worker;
 use super::SynthesisError;
 use crate::gpu;
-use crate::gpu::locks::{GPULock, PriorityLock};
+use crate::gpu::locks::PriorityLock;
 
 /// An object that builds a source of bases.
 pub trait SourceBuilder<G: CurveAffine>: Send + Sync + 'static + Clone {
@@ -367,11 +363,11 @@ fn test_with_bls12() {
     assert_eq!(naive, fast);
 }
 
+use log::{info, warn};
 pub fn create_multiexp_kernel<E>() -> Option<gpu::MultiexpKernel<E>>
 where
     E: paired::Engine,
 {
-    use log::{info, warn};
     match gpu::MultiexpKernel::<E>::create() {
         Ok(k) => {
             info!("GPU Multiexp kernel instantiated!");
@@ -388,18 +384,15 @@ pub struct LockedMultiexpKernel<E>
 where
     E: paired::Engine,
 {
-    kernel: Option<gpu::MultiexpKernel<E>>
+    kernel: Option<gpu::MultiexpKernel<E>>,
 }
 
-use log::{info, warn};
 impl<E> LockedMultiexpKernel<E>
 where
     E: paired::Engine,
 {
     pub fn new() -> LockedMultiexpKernel<E> {
-        LockedMultiexpKernel::<E> {
-            kernel: None
-        }
+        LockedMultiexpKernel::<E> { kernel: None }
     }
     pub fn get(&mut self) -> &mut Option<gpu::MultiexpKernel<E>> {
         if !PriorityLock::can_lock() {
@@ -410,8 +403,8 @@ where
         } else if self.kernel.is_none() {
             // Is this really needed?
             // if GPULock::gpu_is_available() {
-                warn!("GPU is free again! Trying to reacquire GPU...");
-                self.kernel = create_multiexp_kernel::<E>();
+            warn!("GPU is free again! Trying to reacquire GPU...");
+            self.kernel = create_multiexp_kernel::<E>();
             // }
         }
         &mut self.kernel

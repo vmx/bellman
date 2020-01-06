@@ -9,7 +9,6 @@ use paired::Engine;
 
 use super::{ParameterSource, Proof};
 use crate::domain::{EvaluationDomain, LockedFFTKernel, Scalar};
-use crate::gpu::locks::GPULock;
 use crate::multicore::Worker;
 use crate::multiexp::{multiexp, DensityTracker, FullDensity, LockedMultiexpKernel};
 use crate::{Circuit, ConstraintSystem, Index, LinearCombination, SynthesisError, Variable};

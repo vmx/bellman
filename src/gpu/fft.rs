@@ -1,6 +1,6 @@
 use crate::gpu::{
     error::{GPUError, GPUResult},
-    sources, structs, GPU_NVIDIA_DEVICES, locks,
+    locks, sources, structs, GPU_NVIDIA_DEVICES,
 };
 use ff::Field;
 use log::info;
@@ -74,7 +74,7 @@ where
             fft_dst_buffer: dstbuff,
             fft_pq_buffer: pqbuff,
             fft_omg_buffer: omgbuff,
-            lock
+            lock,
         })
     }
 
