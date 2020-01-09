@@ -288,7 +288,7 @@ where
     E: Engine,
 {
     kernels: Vec<SingleMultiexpKernel<E>>,
-    _lock: locks::GPULock,
+    _lock: locks::GPULock, // RFC 1857: struct fields are dropped in the same order as they are declared.
 }
 
 impl<E> MultiexpKernel<E>
@@ -323,7 +323,10 @@ where
                 k.n
             );
         }
-        return Ok(MultiexpKernel::<E> { kernels, _lock: lock });
+        return Ok(MultiexpKernel::<E> {
+            kernels,
+            _lock: lock,
+        });
     }
 
     pub fn multiexp<G>(

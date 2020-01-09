@@ -630,11 +630,8 @@ where
                 self.kernel = None; // This would drop kernel and free up the GPU
             }
         } else if self.kernel.is_none() {
-            // Is this really needed?
-            // if GPULock::gpu_is_available() {
             warn!("FFT GPU can be used by this process...");
             self.kernel = create_fft_kernel::<E>(self.log_d);
-            // }
         }
         &mut self.kernel
     }

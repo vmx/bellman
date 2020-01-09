@@ -23,7 +23,7 @@ where
     fft_dst_buffer: Buffer<structs::PrimeFieldStruct<E::Fr>>,
     fft_pq_buffer: Buffer<structs::PrimeFieldStruct<E::Fr>>,
     fft_omg_buffer: Buffer<structs::PrimeFieldStruct<E::Fr>>,
-    _lock: locks::GPULock,
+    _lock: locks::GPULock, // RFC 1857: struct fields are dropped in the same order as they are declared.
 }
 
 impl<E> FFTKernel<E>
