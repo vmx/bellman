@@ -23,7 +23,7 @@ where
     fft_dst_buffer: Buffer<structs::PrimeFieldStruct<E::Fr>>,
     fft_pq_buffer: Buffer<structs::PrimeFieldStruct<E::Fr>>,
     fft_omg_buffer: Buffer<structs::PrimeFieldStruct<E::Fr>>,
-    lock: locks::GPULock,
+    _lock: locks::GPULock,
 }
 
 impl<E> FFTKernel<E>
@@ -74,7 +74,7 @@ where
             fft_dst_buffer: dstbuff,
             fft_pq_buffer: pqbuff,
             fft_omg_buffer: omgbuff,
-            lock,
+            _lock: lock,
         })
     }
 

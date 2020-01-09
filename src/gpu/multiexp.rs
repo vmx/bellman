@@ -288,7 +288,7 @@ where
     E: Engine,
 {
     kernels: Vec<SingleMultiexpKernel<E>>,
-    lock: locks::GPULock,
+    _lock: locks::GPULock,
 }
 
 impl<E> MultiexpKernel<E>
@@ -323,7 +323,7 @@ where
                 k.n
             );
         }
-        return Ok(MultiexpKernel::<E> { kernels, lock });
+        return Ok(MultiexpKernel::<E> { kernels, _lock: lock });
     }
 
     pub fn multiexp<G>(
