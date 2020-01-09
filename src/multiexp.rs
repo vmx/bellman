@@ -9,7 +9,6 @@ use std::sync::Arc;
 use super::multicore::Worker;
 use super::SynthesisError;
 use crate::gpu;
-use crate::gpu::locks::PriorityLock;
 
 /// An object that builds a source of bases.
 pub trait SourceBuilder<G: CurveAffine>: Send + Sync + 'static + Clone {
@@ -395,14 +394,17 @@ where
         LockedMultiexpKernel::<E> { kernel: None }
     }
     pub fn get(&mut self) -> &mut Option<gpu::MultiexpKernel<E>> {
-        if !PriorityLock::can_lock() {
-            if self.kernel.is_some() {
-                warn!("GPU acquired by a high priority process! Freeing up kernels...");
-                self.kernel = None; // This would drop kernel and free up the GPU
+        #[cfg(feature = "gpu")]
+        {
+            if !gpu::PriorityLock::can_lock() {
+                if self.kernel.is_some() {
+                    warn!("GPU acquired by a high priority process! Freeing up kernels...");
+                    self.kernel = None; // This would drop kernel and free up the GPU
+                }
+            } else if self.kernel.is_none() {
+                info!("GPU is available!");
+                self.kernel = create_multiexp_kernel::<E>();
             }
-        } else if self.kernel.is_none() {
-            info!("GPU is available!");
-            self.kernel = create_multiexp_kernel::<E>();
         }
         &mut self.kernel
     }

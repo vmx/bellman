@@ -1,7 +1,10 @@
 mod error;
 pub use self::error::*;
 
-pub mod locks;
+#[cfg(feature = "gpu")]
+mod locks;
+#[cfg(feature = "gpu")]
+pub use self::locks::*;
 
 #[cfg(feature = "gpu")]
 mod sources;

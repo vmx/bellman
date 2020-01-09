@@ -6,7 +6,6 @@ extern crate log;
 extern crate paired;
 extern crate rand;
 use bellperson::gpu;
-use bellperson::gpu::locks::{GPULock, PriorityLock};
 use bellperson::groth16::Parameters;
 use bellperson::{Circuit, ConstraintSystem, SynthesisError};
 use log::info;
@@ -72,6 +71,7 @@ impl<E: Engine> Circuit<E> for DummyDemo<E> {
 #[cfg(feature = "gpu-test")]
 #[test]
 pub fn test_parallel_prover() {
+    use bellperson::gpu::{GPULock, PriorityLock};
     env_logger::init();
     use bellperson::groth16::{
         create_proof, create_random_proof, generate_random_parameters, prepare_verifying_key,
