@@ -397,11 +397,11 @@ where
     pub fn get(&mut self) -> &mut Option<gpu::MultiexpKernel<E>> {
         if !PriorityLock::can_lock() {
             if self.kernel.is_some() {
-                warn!("Multiexp GPU acquired by some other process! Freeing up kernel...");
+                warn!("GPU acquired by a high priority process! Freeing up kernels...");
                 self.kernel = None; // This would drop kernel and free up the GPU
             }
         } else if self.kernel.is_none() {
-            warn!("GPU is free again! Trying to reacquire GPU...");
+            info!("GPU is available!");
             self.kernel = create_multiexp_kernel::<E>();
         }
         &mut self.kernel
