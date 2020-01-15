@@ -284,6 +284,7 @@ where
         let (bss, skip) = bases.clone().get();
         match k.multiexp(pool, bss, Arc::new(exps.clone()), skip, n) {
             Ok(p) => {
+                debug!("Ran Multiexp on GPU");
                 return Box::new(pool.compute(move || Ok(p)));
             }
             Err(e) => {
@@ -292,6 +293,7 @@ where
         }
     }
 
+    info!("Running Multiexp on CPU");
     let c = if exponents.len() < 32 {
         3u32
     } else {
@@ -362,7 +364,7 @@ fn test_with_bls12() {
     assert_eq!(naive, fast);
 }
 
-use log::{info, warn};
+use log::{debug, info, warn};
 pub fn create_multiexp_kernel<E>() -> Option<gpu::MultiexpKernel<E>>
 where
     E: paired::Engine,
