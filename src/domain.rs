@@ -13,6 +13,7 @@
 
 use ff::{Field, PrimeField, ScalarEngine};
 use groupy::CurveProjective;
+use log::{debug, info, warn};
 use paired::Engine;
 
 use super::multicore::Worker;
@@ -99,8 +100,10 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
         best_fft(kern, &mut self.coeffs, worker, &self.omegainv, self.exp)?;
 
         if let Some(ref mut k) = kern {
+            debug!("Running Mul-by-field on GPU");
             gpu_mul_by_field(k, &mut self.coeffs, &self.minv, self.exp)?;
         } else {
+            info!("Running Mul-by-field on CPU");
             worker.scope(self.coeffs.len(), |scope, chunk| {
                 let minv = self.minv;
 
@@ -174,8 +177,10 @@ impl<E: Engine, G: Group<E>> EvaluationDomain<E, G> {
             .unwrap();
 
         if let Some(ref mut k) = kern {
+            debug!("Running Mul-by-field on GPU");
             gpu_mul_by_field(k, &mut self.coeffs, &i, self.exp)?;
         } else {
+            info!("Running Mul-by-field on CPU");
             worker.scope(self.coeffs.len(), |scope, chunk| {
                 for v in self.coeffs.chunks_mut(chunk) {
                     scope.spawn(move |_| {
@@ -306,8 +311,10 @@ fn best_fft<E: Engine, T: Group<E>>(
     log_n: u32,
 ) -> gpu::GPUResult<()> {
     if let Some(ref mut k) = kern {
+        debug!("Running FTT on GPU");
         gpu_fft(k, a, omega, log_n)?;
     } else {
+        info!("Running FTT on CPU");
         let log_cpus = worker.log_num_cpus();
         if log_n <= log_cpus {
             serial_fft(a, omega, log_n);
@@ -580,7 +587,6 @@ pub fn create_fft_kernel<E>(log_d: u32) -> Option<gpu::FFTKernel<E>>
 where
     E: Engine,
 {
-    use log::{info, warn};
     match gpu::FFTKernel::create(1 << log_d) {
         Ok(k) => {
             info!("GPU FFT kernel instantiated!");

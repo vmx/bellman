@@ -2,7 +2,7 @@ use bit_vec::{self, BitVec};
 use ff::{Field, PrimeField, PrimeFieldRepr, ScalarEngine};
 use futures::Future;
 use groupy::{CurveAffine, CurveProjective};
-use log::{info, warn};
+use log::{debug, info, warn};
 use std::io;
 use std::iter;
 use std::sync::Arc;
@@ -285,6 +285,7 @@ where
         let (bss, skip) = bases.clone().get();
         match k.multiexp(pool, bss, Arc::new(exps.clone()), skip, n) {
             Ok(p) => {
+                debug!("Ran Multiexp on GPU");
                 return Box::new(pool.compute(move || Ok(p)));
             }
             Err(e) => {
@@ -293,6 +294,7 @@ where
         }
     }
 
+    info!("Running Multiexp on CPU");
     let c = if exponents.len() < 32 {
         3u32
     } else {
