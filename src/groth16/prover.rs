@@ -8,11 +8,9 @@ use groupy::{CurveAffine, CurveProjective};
 use paired::Engine;
 
 use super::{ParameterSource, Proof};
-use crate::domain::{create_fft_kernel, EvaluationDomain, Scalar};
-#[cfg(feature = "gpu")]
-use crate::gpu;
+use crate::domain::{EvaluationDomain, LockedFFTKernel, Scalar};
 use crate::multicore::Worker;
-use crate::multiexp::{create_multiexp_kernel, multiexp, DensityTracker, FullDensity};
+use crate::multiexp::{multiexp, DensityTracker, FullDensity, LockedMultiexpKernel};
 use crate::{
     Circuit, ConstraintSystem, Index, LinearCombination, SynthesisError, Variable, BELLMAN_VERSION,
 };
@@ -187,9 +185,6 @@ where
 {
     info!("Bellperson {} is being used!", BELLMAN_VERSION);
 
-    #[cfg(feature = "gpu")]
-    let lock = gpu::lock()?;
-
     let mut prover = ProvingAssignment {
         a_aux_density: DensityTracker::new(),
         b_input_density: DensityTracker::new(),
@@ -220,25 +215,25 @@ where
     }
 
     let a = {
-        let mut fft_kern = create_fft_kernel(log_d);
+        let mut fft_kern = LockedFFTKernel::new(log_d);
 
         let mut a = EvaluationDomain::from_coeffs(prover.a)?;
         let mut b = EvaluationDomain::from_coeffs(prover.b)?;
         let mut c = EvaluationDomain::from_coeffs(prover.c)?;
 
-        a.ifft(&worker, &mut fft_kern)?;
-        a.coset_fft(&worker, &mut fft_kern)?;
-        b.ifft(&worker, &mut fft_kern)?;
-        b.coset_fft(&worker, &mut fft_kern)?;
-        c.ifft(&worker, &mut fft_kern)?;
-        c.coset_fft(&worker, &mut fft_kern)?;
+        a.ifft(&worker, fft_kern.get())?;
+        a.coset_fft(&worker, fft_kern.get())?;
+        b.ifft(&worker, fft_kern.get())?;
+        b.coset_fft(&worker, fft_kern.get())?;
+        c.ifft(&worker, fft_kern.get())?;
+        c.coset_fft(&worker, fft_kern.get())?;
 
         a.mul_assign(&worker, &b);
         drop(b);
         a.sub_assign(&worker, &c);
         drop(c);
-        a.divide_by_z_on_coset(&worker, &mut fft_kern)?;
-        a.icoset_fft(&worker, &mut fft_kern)?;
+        a.divide_by_z_on_coset(&worker, fft_kern.get())?;
+        a.icoset_fft(&worker, fft_kern.get())?;
         let mut a = a.into_coeffs();
         let a_len = a.len() - 1;
         a.truncate(a_len);
@@ -246,14 +241,14 @@ where
         Arc::new(a.into_iter().map(|s| s.0.into_repr()).collect::<Vec<_>>())
     };
 
-    let mut multiexp_kern = create_multiexp_kernel();
+    let mut multiexp_kern = LockedMultiexpKernel::new();
 
     let h = multiexp(
         &worker,
         params.get_h(a.len())?,
         FullDensity,
         a,
-        &mut multiexp_kern,
+        multiexp_kern.get(),
     );
 
     // TODO: parallelize if it's even helpful
@@ -277,7 +272,7 @@ where
         params.get_l(aux_assignment.len())?,
         FullDensity,
         aux_assignment.clone(),
-        &mut multiexp_kern,
+        multiexp_kern.get(),
     );
 
     let a_aux_density_total = prover.a_aux_density.get_total_density();
@@ -290,14 +285,15 @@ where
         a_inputs_source,
         FullDensity,
         input_assignment.clone(),
-        &mut multiexp_kern,
+        multiexp_kern.get(),
     );
+
     let a_aux = multiexp(
         &worker,
         a_aux_source,
         Arc::new(prover.a_aux_density),
         aux_assignment.clone(),
-        &mut multiexp_kern,
+        multiexp_kern.get(),
     );
 
     let b_input_density = Arc::new(prover.b_input_density);
@@ -313,14 +309,15 @@ where
         b_g1_inputs_source,
         b_input_density.clone(),
         input_assignment.clone(),
-        &mut multiexp_kern,
+        multiexp_kern.get(),
     );
+
     let b_g1_aux = multiexp(
         &worker,
         b_g1_aux_source,
         b_aux_density.clone(),
         aux_assignment.clone(),
-        &mut multiexp_kern,
+        multiexp_kern.get(),
     );
 
     let (b_g2_inputs_source, b_g2_aux_source) =
@@ -331,14 +328,15 @@ where
         b_g2_inputs_source,
         b_input_density,
         input_assignment,
-        &mut multiexp_kern,
+        multiexp_kern.get(),
     );
+
     let b_g2_aux = multiexp(
         &worker,
         b_g2_aux_source,
         b_aux_density,
         aux_assignment,
-        &mut multiexp_kern,
+        multiexp_kern.get(),
     );
 
     if vk.delta_g1.is_zero() || vk.delta_g2.is_zero() {
@@ -376,9 +374,6 @@ where
     g_c.add_assign(&b1_answer);
     g_c.add_assign(&h.wait()?);
     g_c.add_assign(&l.wait()?);
-
-    #[cfg(feature = "gpu")]
-    gpu::unlock(lock);
 
     Ok(Proof {
         a: g_a.into_affine(),

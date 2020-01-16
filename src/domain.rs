@@ -576,11 +576,11 @@ fn parallel_fft_consistency() {
     test_consistency::<Bls12, _>(rng);
 }
 
+use log::{info, warn};
 pub fn create_fft_kernel<E>(log_d: u32) -> Option<gpu::FFTKernel<E>>
 where
     E: Engine,
 {
-    use log::{info, warn};
     match gpu::FFTKernel::create(1 << log_d) {
         Ok(k) => {
             info!("GPU FFT kernel instantiated!");
@@ -590,6 +590,40 @@ where
             warn!("Cannot instantiate GPU FFT kernel! Error: {}", e);
             None
         }
+    }
+}
+
+pub struct LockedFFTKernel<E>
+where
+    E: paired::Engine,
+{
+    log_d: u32,
+    kernel: Option<gpu::FFTKernel<E>>,
+}
+
+impl<E> LockedFFTKernel<E>
+where
+    E: paired::Engine,
+{
+    pub fn new(log_d: u32) -> LockedFFTKernel<E> {
+        LockedFFTKernel::<E> {
+            log_d: log_d,
+            kernel: None,
+        }
+    }
+    pub fn get(&mut self) -> &mut Option<gpu::FFTKernel<E>> {
+        #[cfg(feature = "gpu")]
+        {
+            if !gpu::PriorityLock::can_lock() {
+                if let Some(_kernel) = self.kernel.take() {
+                    warn!("GPU acquired by a high priority process! Freeing up kernels...");
+                }
+            } else if self.kernel.is_none() {
+                info!("GPU is available!");
+                self.kernel = create_fft_kernel::<E>(self.log_d);
+            }
+        }
+        &mut self.kernel
     }
 }
 
