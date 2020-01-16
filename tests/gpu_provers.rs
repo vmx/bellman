@@ -15,8 +15,10 @@ use ff::{Field, PrimeField};
 use log::info;
 use paired::{bls12_381::Bls12, Engine};
 use rand::thread_rng;
+
 use std::thread;
 use std::time::Duration;
+use std::process;
 
 #[derive(Clone)]
 pub struct DummyDemo<E: Engine> {
@@ -55,10 +57,33 @@ impl<E: Engine> Circuit<E> for DummyDemo<E> {
     }
 }
 
+pub fn colored_with_thread(
+    writer: &mut dyn std::io::Write,
+    now: &mut flexi_logger::DeferredNow,
+    record: &flexi_logger::Record,
+) -> Result<(), std::io::Error> {
+    let level = record.level();
+    write!(
+        writer,
+        "{} {} {} {} {} > {}",
+        now.now().format("%Y-%m-%dT%H:%M:%S%.3f"),
+        process::id(),
+        thread::current()
+            .name()
+            .unwrap_or(&format!("{:?}", thread::current().id())),
+        flexi_logger::style(level, level),
+        record.module_path().unwrap_or("<unnamed>"),
+        record.args(),
+    )
+}
+
 #[cfg(feature = "gpu-test")]
 #[test]
 pub fn test_parallel_prover() {
-    env_logger::init();
+    flexi_logger::Logger::with_env()
+        .format(colored_with_thread)
+        .start()
+        .expect("Initializing logger failed. Was another logger already initialized?");
     let rng = &mut thread_rng();
 
     println!("Initializing circuit...");
