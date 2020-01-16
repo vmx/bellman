@@ -8,9 +8,9 @@ use groupy::{CurveAffine, CurveProjective};
 use paired::Engine;
 
 use super::{ParameterSource, Proof};
-use crate::domain::{LockedFFTKernel, EvaluationDomain, Scalar};
+use crate::domain::{EvaluationDomain, LockedFFTKernel, Scalar};
 use crate::multicore::Worker;
-use crate::multiexp::{LockedMultiexpKernel, multiexp, DensityTracker, FullDensity};
+use crate::multiexp::{multiexp, DensityTracker, FullDensity, LockedMultiexpKernel};
 use crate::{
     Circuit, ConstraintSystem, Index, LinearCombination, SynthesisError, Variable, BELLMAN_VERSION,
 };
