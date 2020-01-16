@@ -107,13 +107,14 @@ pub fn test_parallel_prover() {
     let pvk = prepare_verifying_key(&params.vk);
     let pvk2 = prepare_verifying_key(&params2.vk);
 
-    let lower_thread = thread::spawn(move || {
+    let lower_thread_config = thread::Builder::new().name("low".to_string());
+    let lower_thread = lower_thread_config.spawn(move || {
         info!("Creating proof from LOWER priority process...");
         let rng = &mut thread_rng();
         let proof_lower = create_random_proof(c2, &params2, rng).unwrap();
         let result = verify_proof(&pvk2, &proof_lower, &[]).unwrap();
         info!("Proof Lower is verified: {}", result);
-    });
+    }).expect("Could not spawn thread");
 
     // Have higher prio proof wait long enough to interrupt lower
     thread::sleep(Duration::from_millis(2000));
