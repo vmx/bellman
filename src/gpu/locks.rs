@@ -1,15 +1,22 @@
 use fs2::FileExt;
 use log::info;
 use std::fs::File;
+use std::path::PathBuf;
 
-const GPU_LOCK_NAME: &str = "/tmp/bellman.gpu.lock";
+const GPU_LOCK_NAME: &str = "bellman.gpu.lock";
+const PRIORITY_LOCK_NAME: &str = "bellman.priority.lock";
+fn tmp_path(filename: &str) -> PathBuf {
+    let mut p = std::env::temp_dir();
+    p.push(filename);
+    p
+}
 
 #[derive(Debug)]
 pub struct GPULock(File);
 impl GPULock {
     pub fn lock() -> GPULock {
         info!("Acquiring GPU lock...");
-        let f = File::create(GPU_LOCK_NAME).unwrap();
+        let f = File::create(tmp_path(GPU_LOCK_NAME)).unwrap();
         f.lock_exclusive().unwrap();
         info!("GPU lock acquired!");
         GPULock(f)
@@ -21,8 +28,6 @@ impl Drop for GPULock {
     }
 }
 
-const PRIORITY_LOCK_NAME: &str = "/tmp/bellman.priority.lock";
-
 use std::cell::RefCell;
 thread_local!(static IS_ME: RefCell<bool> = RefCell::new(false));
 
@@ -31,7 +36,7 @@ pub struct PriorityLock(File);
 impl PriorityLock {
     pub fn lock() -> PriorityLock {
         info!("Acquiring priority lock...");
-        let f = File::create(PRIORITY_LOCK_NAME).unwrap();
+        let f = File::create(tmp_path(PRIORITY_LOCK_NAME)).unwrap();
         f.lock_exclusive().unwrap();
         IS_ME.with(|f| *f.borrow_mut() = true);
         info!("Priority lock acquired!");
