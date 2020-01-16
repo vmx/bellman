@@ -615,9 +615,8 @@ where
         #[cfg(feature = "gpu")]
         {
             if !gpu::PriorityLock::can_lock() {
-                if self.kernel.is_some() {
+                if let Some(_kernel) = self.kernel.take() {
                     warn!("GPU acquired by a high priority process! Freeing up kernels...");
-                    self.kernel = None; // This would drop kernel and free up the GPU
                 }
             } else if self.kernel.is_none() {
                 info!("GPU is available!");
