@@ -46,7 +46,7 @@ impl PriorityLock {
         // Either taken by me or not taken by somebody else
         let is_me = IS_ME.with(|f| *f.borrow());
         is_me
-            || File::create(PRIORITY_LOCK_NAME)
+            || File::create(tmp_path(PRIORITY_LOCK_NAME))
                 .unwrap()
                 .try_lock_exclusive()
                 .is_ok()
