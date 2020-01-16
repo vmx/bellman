@@ -15,12 +15,6 @@ impl GPULock {
         self.0.lock_exclusive().unwrap();
         info!("GPU lock acquired!");
     }
-    pub fn gpu_is_available() -> bool {
-        File::create(GPU_LOCK_NAME)
-            .unwrap()
-            .try_lock_exclusive()
-            .is_ok()
-    }
 }
 impl Drop for GPULock {
     fn drop(&mut self) {
