@@ -8,9 +8,10 @@ use groupy::{CurveAffine, CurveProjective};
 use paired::Engine;
 
 use super::{ParameterSource, Proof};
-use crate::domain::{EvaluationDomain, LockedFFTKernel, Scalar};
+use crate::domain::{create_fft_kernel, EvaluationDomain, Scalar};
+use crate::gpu::LockedKernel;
 use crate::multicore::Worker;
-use crate::multiexp::{multiexp, DensityTracker, FullDensity, LockedMultiexpKernel};
+use crate::multiexp::{create_multiexp_kernel, multiexp, DensityTracker, FullDensity};
 use crate::{
     Circuit, ConstraintSystem, Index, LinearCombination, SynthesisError, Variable, BELLMAN_VERSION,
 };
@@ -215,7 +216,7 @@ where
     }
 
     let a = {
-        let mut fft_kern = LockedFFTKernel::new(log_d);
+        let mut fft_kern = LockedKernel::new(|| create_fft_kernel(log_d));
 
         let mut a = EvaluationDomain::from_coeffs(prover.a)?;
         let mut b = EvaluationDomain::from_coeffs(prover.b)?;
@@ -241,7 +242,7 @@ where
         Arc::new(a.into_iter().map(|s| s.0.into_repr()).collect::<Vec<_>>())
     };
 
-    let mut multiexp_kern = LockedMultiexpKernel::new();
+    let mut multiexp_kern = LockedKernel::new(|| create_multiexp_kernel());
 
     let h = multiexp(
         &worker,

@@ -2,6 +2,7 @@ use bit_vec::{self, BitVec};
 use ff::{Field, PrimeField, PrimeFieldRepr, ScalarEngine};
 use futures::Future;
 use groupy::{CurveAffine, CurveProjective};
+use log::{info, warn};
 use std::io;
 use std::iter;
 use std::sync::Arc;
@@ -362,7 +363,6 @@ fn test_with_bls12() {
     assert_eq!(naive, fast);
 }
 
-use log::{info, warn};
 pub fn create_multiexp_kernel<E>() -> Option<gpu::MultiexpKernel<E>>
 where
     E: paired::Engine,
@@ -376,36 +376,6 @@ where
             warn!("Cannot instantiate GPU Multiexp kernel! Error: {}", e);
             None
         }
-    }
-}
-
-pub struct LockedMultiexpKernel<E>
-where
-    E: paired::Engine,
-{
-    kernel: Option<gpu::MultiexpKernel<E>>,
-}
-
-impl<E> LockedMultiexpKernel<E>
-where
-    E: paired::Engine,
-{
-    pub fn new() -> LockedMultiexpKernel<E> {
-        LockedMultiexpKernel::<E> { kernel: None }
-    }
-    pub fn get(&mut self) -> &mut Option<gpu::MultiexpKernel<E>> {
-        #[cfg(feature = "gpu")]
-        {
-            if !gpu::PriorityLock::can_lock() {
-                if let Some(_kernel) = self.kernel.take() {
-                    warn!("GPU acquired by a high priority process! Freeing up kernels...");
-                }
-            } else if self.kernel.is_none() {
-                info!("GPU is available!");
-                self.kernel = create_multiexp_kernel::<E>();
-            }
-        }
-        &mut self.kernel
     }
 }
 

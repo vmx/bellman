@@ -42,3 +42,35 @@ use ocl::Device;
 lazy_static::lazy_static! {
     pub static ref GPU_NVIDIA_DEVICES: Vec<Device> = get_devices(GPU_NVIDIA_PLATFORM_NAME).unwrap_or_default();
 }
+
+pub struct LockedKernel<K, F>
+where
+    F: Fn() -> Option<K>,
+{
+    f: F,
+    kernel: Option<K>,
+}
+
+use log::{info, warn};
+impl<K, F> LockedKernel<K, F>
+where
+    F: Fn() -> Option<K>,
+{
+    pub fn new(f: F) -> LockedKernel<K, F> {
+        LockedKernel::<K, F> { f, kernel: None }
+    }
+    pub fn get(&mut self) -> &mut Option<K> {
+        #[cfg(feature = "gpu")]
+        {
+            if !PriorityLock::can_lock() {
+                if let Some(_kernel) = self.kernel.take() {
+                    warn!("GPU acquired by a high priority process! Freeing up kernels...");
+                }
+            } else if self.kernel.is_none() {
+                info!("GPU is available!");
+                self.kernel = (self.f)();
+            }
+        }
+        &mut self.kernel
+    }
+}
