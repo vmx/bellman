@@ -110,10 +110,14 @@ pub fn test_parallel_prover() {
     let lower_thread_config = thread::Builder::new().name("lower".to_string());
     let lower_thread = lower_thread_config.spawn(move || {
         info!("Creating proof from LOWER priority process...");
-        let rng = &mut thread_rng();
-        let proof_lower = create_random_proof(c2, &params2, rng).unwrap();
-        let result = verify_proof(&pvk2, &proof_lower, &[]).unwrap();
-        info!("Proof Lower is verified: {}", result);
+        let lower_proof_thread_config = thread::Builder::new().name("lower proof".to_string());
+        let lower_proof_thread = lower_proof_thread_config.spawn(move || {
+            let rng = &mut thread_rng();
+            let proof_lower = create_random_proof(c2, &params2, rng).unwrap();
+            let result = verify_proof(&pvk2, &proof_lower, &[]).unwrap();
+            info!("Proof Lower is verified: {}", result);
+        }).expect("Could not spawn thread");
+        lower_proof_thread.join().unwrap();
     }).expect("Could not spawn thread");
 
     // Have higher prio proof wait long enough to interrupt lower
@@ -123,11 +127,15 @@ pub fn test_parallel_prover() {
     let higher_thread_config = thread::Builder::new().name("higher".to_string());
     let higher_thread = higher_thread_config.spawn(move || {
         info!("Creating proof from HIGHER priority process...");
-        let rng = &mut thread_rng();
         let _lock = PriorityLock::lock();
-        let proof_higher = create_random_proof(c, &params, rng).unwrap();
-        let result = verify_proof(&pvk, &proof_higher, &[]).unwrap();
-        info!("Proof Higher is verified: {}", result);
+        let higher_proof_thread_config = thread::Builder::new().name("higher proof".to_string());
+        let higher_proof_thread = higher_proof_thread_config.spawn(move || {
+            let rng = &mut thread_rng();
+            let proof_higher = create_random_proof(c, &params, rng).unwrap();
+            let result = verify_proof(&pvk, &proof_higher, &[]).unwrap();
+            info!("Proof Higher is verified: {}", result);
+        }).expect("Could not spawn thread");
+        higher_proof_thread.join().unwrap();
     }).expect("Could not spawn thread");
 
     higher_thread.join().unwrap();
