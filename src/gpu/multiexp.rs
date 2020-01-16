@@ -296,8 +296,7 @@ where
     E: Engine,
 {
     pub fn create() -> GPUResult<MultiexpKernel<E>> {
-        let mut lock = locks::GPULock::new();
-        lock.lock();
+        let lock = locks::GPULock::lock();
 
         let kernels: Vec<_> = GPU_NVIDIA_DEVICES
             .iter()

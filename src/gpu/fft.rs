@@ -31,8 +31,7 @@ where
     E: Engine,
 {
     pub fn create(n: u32) -> GPUResult<FFTKernel<E>> {
-        let mut lock = locks::GPULock::new();
-        lock.lock();
+        let lock = locks::GPULock::lock();
 
         let src = sources::kernel::<E>();
         let devices = &GPU_NVIDIA_DEVICES;

@@ -7,13 +7,12 @@ const GPU_LOCK_NAME: &str = "/tmp/bellman.gpu.lock";
 #[derive(Debug)]
 pub struct GPULock(File);
 impl GPULock {
-    pub fn new() -> GPULock {
-        GPULock(File::create(GPU_LOCK_NAME).unwrap())
-    }
-    pub fn lock(&mut self) {
+    pub fn lock() -> GPULock {
         info!("Acquiring GPU lock...");
-        self.0.lock_exclusive().unwrap();
+        let f = File::create(GPU_LOCK_NAME).unwrap();
+        f.lock_exclusive().unwrap();
         info!("GPU lock acquired!");
+        GPULock(f)
     }
 }
 impl Drop for GPULock {
@@ -30,14 +29,13 @@ thread_local!(static IS_ME: RefCell<bool> = RefCell::new(false));
 #[derive(Debug)]
 pub struct PriorityLock(File);
 impl PriorityLock {
-    pub fn new() -> PriorityLock {
-        PriorityLock(File::create(PRIORITY_LOCK_NAME).unwrap())
-    }
-    pub fn lock(&mut self) {
-        IS_ME.with(|f| *f.borrow_mut() = true);
+    pub fn lock() -> PriorityLock {
         info!("Acquiring priority lock...");
-        self.0.lock_exclusive().unwrap();
+        let f = File::create(PRIORITY_LOCK_NAME).unwrap();
+        f.lock_exclusive().unwrap();
+        IS_ME.with(|f| *f.borrow_mut() = true);
         info!("Priority lock acquired!");
+        PriorityLock(f)
     }
     pub fn can_lock() -> bool {
         // Either taken by me or not taken by somebody else
