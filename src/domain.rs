@@ -19,7 +19,6 @@ use super::multicore::Worker;
 use super::SynthesisError;
 
 use crate::gpu;
-use log::{info, warn};
 
 pub struct EvaluationDomain<E: ScalarEngine, G: Group<E>> {
     coeffs: Vec<G>,
@@ -581,6 +580,7 @@ pub fn create_fft_kernel<E>(log_d: u32) -> Option<gpu::FFTKernel<E>>
 where
     E: Engine,
 {
+    use log::{info, warn};
     match gpu::FFTKernel::create(1 << log_d) {
         Ok(k) => {
             info!("GPU FFT kernel instantiated!");
